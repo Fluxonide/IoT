@@ -21,9 +21,9 @@ class RobotApiService(
         .build()
 
     private val wsClient = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
+        .connectTimeout(3, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.SECONDS)
-        .pingInterval(10, TimeUnit.SECONDS)
+        .pingInterval(5, TimeUnit.SECONDS)  // faster disconnect detection
         .build()
 
     sealed class Result<out T> {

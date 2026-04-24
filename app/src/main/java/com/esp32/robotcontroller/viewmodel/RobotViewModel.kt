@@ -20,6 +20,7 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import java.util.concurrent.atomic.AtomicBoolean
 
 enum class CameraState {
     DISCONNECTED,   // Not started or stopped
@@ -71,6 +72,13 @@ class RobotViewModel : ViewModel() {
     private var reconnectJob: Job? = null
     private var connectionCheckJob: Job? = null
     private var uptimeJob: Job? = null
+    private val isDecoding = AtomicBoolean(false)  // prevent frame queue buildup
+
+    // Reusable decode options to reduce GC pressure
+    private val decodeOptions = BitmapFactory.Options().apply {
+        inMutable = true
+        inPreferredConfig = Bitmap.Config.RGB_565  // half the memory of ARGB_8888
+    }
 
     // Speed debounce flow
     private val speedFlow = MutableSharedFlow<Int>(extraBufferCapacity = 1)
@@ -171,11 +179,22 @@ class RobotViewModel : ViewModel() {
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                // Each WebSocket message is a complete JPEG frame
-                val jpegData = bytes.toByteArray()
-                val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
-                if (bitmap != null) {
-                    _cameraFrame.value = bitmap
+                // Drop frame if previous decode is still in-flight
+                // This prevents frame queue buildup which causes latency
+                if (!isDecoding.compareAndSet(false, true)) return
+
+                viewModelScope.launch(Dispatchers.Default) {
+                    try {
+                        val jpegData = bytes.toByteArray()
+                        val bitmap = BitmapFactory.decodeByteArray(
+                            jpegData, 0, jpegData.size, decodeOptions
+                        )
+                        if (bitmap != null) {
+                            _cameraFrame.value = bitmap
+                        }
+                    } finally {
+                        isDecoding.set(false)
+                    }
                 }
             }
 
@@ -209,8 +228,8 @@ class RobotViewModel : ViewModel() {
     private fun scheduleReconnect() {
         reconnectJob?.cancel()
         reconnectJob = viewModelScope.launch {
-            // Backoff: 1s, 2s, 3s... capped at 5s
-            val backoff = (_cameraRetryCount.value.coerceAtMost(5)) * 1000L
+            // Fast backoff: 500ms, 1s, 1.5s... capped at 2.5s
+            val backoff = (_cameraRetryCount.value.coerceAtMost(5)) * 500L
             delay(backoff)
             if (_cameraState.value != CameraState.DISCONNECTED) {
                 connectWebSocket()
