@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 
 class RobotApiService(
     private val controlBaseUrl: String = "http://192.168.137.50",
-    private val cameraStreamUrl: String = "http://192.168.137.60/"
+    private val cameraStreamUrl: String = "http://192.168.137.60:81/stream"
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(3, TimeUnit.SECONDS)
