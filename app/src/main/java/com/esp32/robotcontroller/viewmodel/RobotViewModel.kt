@@ -20,6 +20,13 @@ import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
+enum class CameraState {
+    DISCONNECTED,   // Not started or stopped
+    CONNECTING,     // Attempting to connect to camera
+    STREAMING,      // Receiving frames
+    ERROR           // Connection failed, will retry
+}
+
 class RobotViewModel : ViewModel() {
     private val apiService = RobotApiService()
 
@@ -43,9 +50,17 @@ class RobotViewModel : ViewModel() {
     private val _uptimeSeconds = MutableStateFlow(0L)
     val uptimeSeconds: StateFlow<Long> = _uptimeSeconds.asStateFlow()
 
-    // Stream active
-    private val _isStreamActive = MutableStateFlow(false)
-    val isStreamActive: StateFlow<Boolean> = _isStreamActive.asStateFlow()
+    // Camera state (replaces boolean isStreamActive)
+    private val _cameraState = MutableStateFlow(CameraState.DISCONNECTED)
+    val cameraState: StateFlow<CameraState> = _cameraState.asStateFlow()
+
+    // Retry counter for camera connection
+    private val _cameraRetryCount = MutableStateFlow(0)
+    val cameraRetryCount: StateFlow<Int> = _cameraRetryCount.asStateFlow()
+
+    // Camera error message
+    private val _cameraError = MutableStateFlow<String?>(null)
+    val cameraError: StateFlow<String?> = _cameraError.asStateFlow()
 
     // Track last sent command timestamp to prevent excessive duplicate commands
     private var lastCommandTime = 0L
@@ -135,31 +150,52 @@ class RobotViewModel : ViewModel() {
     fun startCameraStream() {
         if (streamJob?.isActive == true) return
 
+        _cameraRetryCount.value = 0
+        _cameraError.value = null
+
         streamJob = viewModelScope.launch(Dispatchers.IO) {
-            _isStreamActive.value = true
             while (isActive) {
+                _cameraState.value = CameraState.CONNECTING
+                _cameraError.value = null
+
                 when (val result = apiService.openMjpegStream()) {
                     is RobotApiService.Result.Success -> {
+                        _cameraState.value = CameraState.STREAMING
+                        _cameraRetryCount.value = 0
                         try {
                             decodeMjpegStream(result.data)
                         } catch (_: Exception) {
-                            // Stream interrupted, retry
+                            // Stream interrupted, will retry
                         }
+                        // If we get here, stream ended — go back to connecting
+                        _cameraState.value = CameraState.CONNECTING
                     }
                     is RobotApiService.Result.Error -> {
-                        delay(2000)
+                        _cameraRetryCount.value++
+                        _cameraError.value = result.message
+                        _cameraState.value = CameraState.ERROR
+                        // Exponential backoff: 1s, 2s, 3s... capped at 5s
+                        val backoff = (_cameraRetryCount.value.coerceAtMost(5)) * 1000L
+                        delay(backoff)
                     }
                 }
             }
-            _isStreamActive.value = false
+            _cameraState.value = CameraState.DISCONNECTED
         }
     }
 
     fun stopCameraStream() {
         streamJob?.cancel()
         streamJob = null
-        _isStreamActive.value = false
+        _cameraState.value = CameraState.DISCONNECTED
         _cameraFrame.value = null
+        _cameraRetryCount.value = 0
+        _cameraError.value = null
+    }
+
+    fun retryCameraStream() {
+        stopCameraStream()
+        startCameraStream()
     }
 
     private suspend fun decodeMjpegStream(inputStream: InputStream) {

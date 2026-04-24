@@ -40,7 +40,9 @@ fun ControlScreen(viewModel: RobotViewModel) {
     val cameraFrame by viewModel.cameraFrame.collectAsState()
     val currentDirection by viewModel.currentDirection.collectAsState()
     val uptimeSeconds by viewModel.uptimeSeconds.collectAsState()
-    val isStreamActive by viewModel.isStreamActive.collectAsState()
+    val cameraState by viewModel.cameraState.collectAsState()
+    val cameraRetryCount by viewModel.cameraRetryCount.collectAsState()
+    val cameraError by viewModel.cameraError.collectAsState()
 
     // Start camera stream when screen is shown
     LaunchedEffect(Unit) {
@@ -76,7 +78,10 @@ fun ControlScreen(viewModel: RobotViewModel) {
         // === Camera Feed ===
         MjpegView(
             frame = cameraFrame,
-            isStreamActive = isStreamActive,
+            cameraState = cameraState,
+            retryCount = cameraRetryCount,
+            errorMessage = cameraError,
+            onRetry = { viewModel.retryCameraStream() },
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
