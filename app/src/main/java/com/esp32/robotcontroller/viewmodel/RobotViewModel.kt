@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.esp32.robotcontroller.network.RobotApiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,8 +16,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
-import java.io.InputStream
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+import okio.ByteString
 
 enum class CameraState {
     DISCONNECTED,   // Not started or stopped
@@ -50,7 +51,7 @@ class RobotViewModel : ViewModel() {
     private val _uptimeSeconds = MutableStateFlow(0L)
     val uptimeSeconds: StateFlow<Long> = _uptimeSeconds.asStateFlow()
 
-    // Camera state (replaces boolean isStreamActive)
+    // Camera state
     private val _cameraState = MutableStateFlow(CameraState.DISCONNECTED)
     val cameraState: StateFlow<CameraState> = _cameraState.asStateFlow()
 
@@ -66,7 +67,8 @@ class RobotViewModel : ViewModel() {
     private var lastCommandTime = 0L
     private val commandThrottleMs = 100L // Allow command every 100ms
 
-    private var streamJob: Job? = null
+    private var cameraWebSocket: WebSocket? = null
+    private var reconnectJob: Job? = null
     private var connectionCheckJob: Job? = null
     private var uptimeJob: Job? = null
 
@@ -148,45 +150,79 @@ class RobotViewModel : ViewModel() {
     }
 
     fun startCameraStream() {
-        if (streamJob?.isActive == true) return
+        if (cameraWebSocket != null) return
 
         _cameraRetryCount.value = 0
         _cameraError.value = null
+        _cameraState.value = CameraState.CONNECTING
 
-        streamJob = viewModelScope.launch(Dispatchers.IO) {
-            while (isActive) {
-                _cameraState.value = CameraState.CONNECTING
+        connectWebSocket()
+    }
+
+    private fun connectWebSocket() {
+        _cameraState.value = CameraState.CONNECTING
+        _cameraError.value = null
+
+        cameraWebSocket = apiService.connectCameraWebSocket(object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                _cameraState.value = CameraState.STREAMING
+                _cameraRetryCount.value = 0
                 _cameraError.value = null
+            }
 
-                when (val result = apiService.openMjpegStream()) {
-                    is RobotApiService.Result.Success -> {
-                        _cameraState.value = CameraState.STREAMING
-                        _cameraRetryCount.value = 0
-                        try {
-                            decodeMjpegStream(result.data)
-                        } catch (_: Exception) {
-                            // Stream interrupted, will retry
-                        }
-                        // If we get here, stream ended — go back to connecting
-                        _cameraState.value = CameraState.CONNECTING
-                    }
-                    is RobotApiService.Result.Error -> {
-                        _cameraRetryCount.value++
-                        _cameraError.value = result.message
-                        _cameraState.value = CameraState.ERROR
-                        // Exponential backoff: 1s, 2s, 3s... capped at 5s
-                        val backoff = (_cameraRetryCount.value.coerceAtMost(5)) * 1000L
-                        delay(backoff)
-                    }
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                // Each WebSocket message is a complete JPEG frame
+                val jpegData = bytes.toByteArray()
+                val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
+                if (bitmap != null) {
+                    _cameraFrame.value = bitmap
                 }
             }
-            _cameraState.value = CameraState.DISCONNECTED
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                _cameraRetryCount.value++
+                _cameraError.value = t.message ?: "Connection failed"
+                _cameraState.value = CameraState.ERROR
+                cameraWebSocket = null
+
+                // Auto-reconnect with backoff
+                scheduleReconnect()
+            }
+
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                webSocket.close(1000, null)
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                cameraWebSocket = null
+                if (_cameraState.value == CameraState.STREAMING) {
+                    // Unexpected close — reconnect
+                    _cameraState.value = CameraState.ERROR
+                    _cameraError.value = "Connection closed (code $code)"
+                    _cameraRetryCount.value++
+                    scheduleReconnect()
+                }
+            }
+        })
+    }
+
+    private fun scheduleReconnect() {
+        reconnectJob?.cancel()
+        reconnectJob = viewModelScope.launch {
+            // Backoff: 1s, 2s, 3s... capped at 5s
+            val backoff = (_cameraRetryCount.value.coerceAtMost(5)) * 1000L
+            delay(backoff)
+            if (_cameraState.value != CameraState.DISCONNECTED) {
+                connectWebSocket()
+            }
         }
     }
 
     fun stopCameraStream() {
-        streamJob?.cancel()
-        streamJob = null
+        reconnectJob?.cancel()
+        reconnectJob = null
+        cameraWebSocket?.close(1000, "User stopped")
+        cameraWebSocket = null
         _cameraState.value = CameraState.DISCONNECTED
         _cameraFrame.value = null
         _cameraRetryCount.value = 0
@@ -196,42 +232,6 @@ class RobotViewModel : ViewModel() {
     fun retryCameraStream() {
         stopCameraStream()
         startCameraStream()
-    }
-
-    private suspend fun decodeMjpegStream(inputStream: InputStream) {
-        val buffer = ByteArray(8192)
-        val jpegBuffer = ByteArrayOutputStream()
-        var inJpeg = false
-        var prev = 0
-
-        while (currentCoroutineContext().isActive) {
-            val bytesRead = inputStream.read(buffer)
-            if (bytesRead == -1) break
-
-            for (i in 0 until bytesRead) {
-                val current = buffer[i].toInt() and 0xFF
-                if (!inJpeg) {
-                    if (prev == 0xFF && current == 0xD8) {
-                        inJpeg = true
-                        jpegBuffer.reset()
-                        jpegBuffer.write(0xFF)
-                        jpegBuffer.write(0xD8)
-                    }
-                } else {
-                    jpegBuffer.write(current)
-                    if (prev == 0xFF && current == 0xD9) {
-                        inJpeg = false
-                        val jpegData = jpegBuffer.toByteArray()
-                        val bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.size)
-                        if (bitmap != null) {
-                            _cameraFrame.value = bitmap
-                        }
-                    }
-                }
-                prev = current
-            }
-        }
-        inputStream.close()
     }
 
     fun emergencyStop() {
@@ -247,8 +247,10 @@ class RobotViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
-        streamJob?.cancel()
+        cameraWebSocket?.close(1000, "ViewModel cleared")
+        reconnectJob?.cancel()
         connectionCheckJob?.cancel()
         uptimeJob?.cancel()
     }
 }
+

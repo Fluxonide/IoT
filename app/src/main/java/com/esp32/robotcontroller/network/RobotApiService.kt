@@ -4,12 +4,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.io.InputStream
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import java.util.concurrent.TimeUnit
 
 class RobotApiService(
     private val controlBaseUrl: String = "http://192.168.137.50",
-    private val cameraStreamUrl: String = "http://192.168.137.60:81/stream"
+    private val cameraWsUrl: String = "ws://192.168.137.60/ws"
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(3, TimeUnit.SECONDS)
@@ -18,9 +20,10 @@ class RobotApiService(
         .retryOnConnectionFailure(true)
         .build()
 
-    private val streamClient = OkHttpClient.Builder()
+    private val wsClient = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.SECONDS)
+        .pingInterval(10, TimeUnit.SECONDS)
         .build()
 
     sealed class Result<out T> {
@@ -52,25 +55,15 @@ class RobotApiService(
     suspend fun stop() = sendCommand("/S")
     suspend fun setSpeed(value: Int) = sendCommand("/speed?v=$value")
 
-    suspend fun openMjpegStream(): Result<InputStream> = withContext(Dispatchers.IO) {
-        try {
-            val request = Request.Builder()
-                .url(cameraStreamUrl)
-                .build()
-            val response = streamClient.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body
-                if (body != null) {
-                    Result.Success(body.byteStream())
-                } else {
-                    Result.Error("Empty response body")
-                }
-            } else {
-                Result.Error("HTTP ${response.code}")
-            }
-        } catch (e: Exception) {
-            Result.Error(e.message ?: "Unknown error")
-        }
+    /**
+     * Connect to the ESP32-CAM WebSocket that pushes JPEG frames as binary messages.
+     * Returns the WebSocket instance so the caller can close it when done.
+     */
+    fun connectCameraWebSocket(listener: WebSocketListener): WebSocket {
+        val request = Request.Builder()
+            .url(cameraWsUrl)
+            .build()
+        return wsClient.newWebSocket(request, listener)
     }
 
     fun checkConnection(): Boolean {
@@ -85,3 +78,4 @@ class RobotApiService(
         }
     }
 }
+
