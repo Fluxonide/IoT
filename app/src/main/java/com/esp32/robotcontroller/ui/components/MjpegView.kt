@@ -40,32 +40,35 @@ fun MjpegView(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )
-        } else if (isStreamActive) {
-            // Loading state
+        } else {
+            // No frame yet - show appropriate message
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(
-                    color = Primary,
-                    modifier = Modifier.size(48.dp)
-                )
-                Text(
-                    text = "Connecting to camera...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(top = 80.dp)
-                )
+                if (isStreamActive) {
+                    // Stream is active but no frame yet
+                    CircularProgressIndicator(
+                        color = Primary,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Text(
+                        text = "Waiting for camera feed...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(top = 80.dp)
+                    )
+                } else {
+                    // Stream not active
+                    Text(
+                        text = "Camera Offline",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-        } else {
-            // Offline state
-            Text(
-                text = "Camera Offline",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

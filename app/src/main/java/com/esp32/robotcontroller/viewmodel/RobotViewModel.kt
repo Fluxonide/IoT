@@ -47,8 +47,9 @@ class RobotViewModel : ViewModel() {
     private val _isStreamActive = MutableStateFlow(false)
     val isStreamActive: StateFlow<Boolean> = _isStreamActive.asStateFlow()
 
-    // Anti-flood: track last sent command
-    private var lastSentCommand: String? = null
+    // Track last sent command timestamp to prevent excessive duplicate commands
+    private var lastCommandTime = 0L
+    private val commandThrottleMs = 100L // Allow command every 100ms
 
     private var streamJob: Job? = null
     private var connectionCheckJob: Job? = null
@@ -94,8 +95,15 @@ class RobotViewModel : ViewModel() {
     }
 
     fun sendDirection(direction: String) {
-        if (direction == lastSentCommand) return
-        lastSentCommand = direction
+        val currentTime = System.currentTimeMillis()
+        
+        // Throttle commands but allow them through periodically for continuous movement
+        if (currentTime - lastCommandTime < commandThrottleMs) {
+            return
+        }
+        
+        lastCommandTime = currentTime
+        
         _currentDirection.value = when (direction) {
             "F" -> "FORWARD"
             "B" -> "BACKWARD"
@@ -104,16 +112,13 @@ class RobotViewModel : ViewModel() {
             else -> "STOP"
         }
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             when (direction) {
                 "F" -> apiService.moveForward()
                 "B" -> apiService.moveBackward()
                 "L" -> apiService.turnLeft()
                 "R" -> apiService.turnRight()
-                "S" -> {
-                    apiService.stop()
-                    lastSentCommand = null
-                }
+                "S" -> apiService.stop()
             }
         }
     }
@@ -194,9 +199,9 @@ class RobotViewModel : ViewModel() {
     }
 
     fun emergencyStop() {
-        lastSentCommand = null
+        lastCommandTime = 0L
         _currentDirection.value = "STOP"
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             repeat(3) {
                 apiService.stop()
                 delay(50)

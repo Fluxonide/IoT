@@ -5,7 +5,9 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +25,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -116,32 +121,55 @@ private fun DpadButton(
             .clip(RoundedCornerShape(16.dp))
             .background(if (isPressed.value) DpadButtonPressed else DpadButton)
             .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed.value = true
-                        // Haptic feedback
-                        try {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                val vibratorManager = context.getSystemService(VibratorManager::class.java)
-                                vibratorManager?.defaultVibrator?.vibrate(
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    
+                    isPressed.value = true
+                    
+                    // Haptic feedback
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            val vibratorManager = context.getSystemService(VibratorManager::class.java)
+                            vibratorManager?.defaultVibrator?.vibrate(
+                                VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE)
+                            )
+                        } else {
+                            @Suppress("DEPRECATION")
+                            val vibrator = context.getSystemService(Vibrator::class.java)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                vibrator?.vibrate(
                                     VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE)
                                 )
-                            } else {
-                                @Suppress("DEPRECATION")
-                                val vibrator = context.getSystemService(Vibrator::class.java)
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    vibrator?.vibrate(
-                                        VibrationEffect.createOneShot(30, VibrationEffect.DEFAULT_AMPLITUDE)
-                                    )
-                                }
                             }
-                        } catch (_: Exception) { }
-                        onPress()
-                        tryAwaitRelease()
-                        isPressed.value = false
-                        onRelease()
+                        }
+                    } catch (_: Exception) { }
+                    
+                    onPress()
+                    
+                    // Keep sending command while pressed
+                    var lastCommandTime = System.currentTimeMillis()
+                    while (true) {
+                        val up = withTimeoutOrNull(50) {
+                            waitForUpOrCancellation()
+                        }
+                        
+                        if (up != null) {
+                            up.consume()
+                            break
+                        } else {
+                            // Still pressed, send command again
+                            val currentTime = System.currentTimeMillis()
+                            if (currentTime - lastCommandTime >= 100) {
+                                onPress()
+                                lastCommandTime = currentTime
+                            }
+                        }
                     }
-                )
+                    
+                    isPressed.value = false
+                    onRelease()
+                }
             }
     ) {
         Icon(
