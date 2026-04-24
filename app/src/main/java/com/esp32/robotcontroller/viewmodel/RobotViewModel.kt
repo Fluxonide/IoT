@@ -228,8 +228,9 @@ class RobotViewModel : ViewModel() {
     private fun scheduleReconnect() {
         reconnectJob?.cancel()
         reconnectJob = viewModelScope.launch {
-            // Fast backoff: 500ms, 1s, 1.5s... capped at 2.5s
-            val backoff = (_cameraRetryCount.value.coerceAtMost(5)) * 500L
+            // Give the ESP32-CAM time to clean up the old connection
+            // before we reconnect. Too fast = disconnect loop.
+            val backoff = 1000L + (_cameraRetryCount.value.coerceAtMost(4)) * 1000L
             delay(backoff)
             if (_cameraState.value != CameraState.DISCONNECTED) {
                 connectWebSocket()
