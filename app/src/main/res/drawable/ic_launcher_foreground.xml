@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Robot body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,40 L74,40 C76.2,40 78,41.8 78,44 L78,72 C78,74.2 76.2,76 74,76 L34,76 C31.8,76 30,74.2 30,72 L30,44 C30,41.8 31.8,40 34,40 Z"/>
+    <!-- Left eye -->
+    <path
+        android:fillColor="#00BCD4"
+        android:pathData="M42,50 C42,47.8 43.8,46 46,46 C48.2,46 50,47.8 50,50 C50,52.2 48.2,54 46,54 C43.8,54 42,52.2 42,50 Z"/>
+    <!-- Right eye -->
+    <path
+        android:fillColor="#00BCD4"
+        android:pathData="M58,50 C58,47.8 59.8,46 62,46 C64.2,46 66,47.8 66,50 C66,52.2 64.2,54 62,54 C59.8,54 58,52.2 58,50 Z"/>
+    <!-- Mouth -->
+    <path
+        android:fillColor="#00BCD4"
+        android:pathData="M42,62 L66,62 C66,66.4 62.4,70 58,70 L50,70 C45.6,70 42,66.4 42,62 Z"/>
+    <!-- Antenna -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:pathData="M54,40 L54,30"/>
+    <path
+        android:fillColor="#00BCD4"
+        android:pathData="M54,28 C55.7,28 57,29.3 57,31 C57,32.7 55.7,34 54,34 C52.3,34 51,32.7 51,31 C51,29.3 52.3,28 54,28 Z"/>
+    <!-- Left arm -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M22,48 L30,48 L30,64 L22,64 C20.9,64 20,63.1 20,62 L20,50 C20,48.9 20.9,48 22,48 Z"/>
+    <!-- Right arm -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M78,48 L86,48 C87.1,48 88,48.9 88,50 L88,62 C88,63.1 87.1,64 86,64 L78,64 L78,48 Z"/>
+    <!-- Left wheel -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,76 L36,84 C36,85.1 37.3,86 39,86 C40.7,86 42,85.1 42,84 L42,76"/>
+    <!-- Right wheel -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M66,76 L66,84 C66,85.1 67.3,86 69,86 C70.7,86 72,85.1 72,84 L72,76"/>
+</vector>
