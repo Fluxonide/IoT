@@ -37,7 +37,14 @@
   .cam-badge { position: absolute; top: 8px; left: 8px; background: rgba(239,68,68,0.9); color: white; font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 20px; display: flex; align-items: center; gap: 4px; }
   .cam-badge-dot { width: 5px; height: 5px; border-radius: 50%; background: white; animation: blink 1s infinite; }
   .cam-url { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: var(--muted); font-size: 10px; padding: 2px 7px; border-radius: 6px; }
-  .expand-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.5); border: 0.5px solid var(--border); border-radius: 6px; padding: 4px 7px; font-size: 10px; color: var(--text); cursor: pointer; }
+  .expand-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.5); border: 0.5px solid var(--border); border-radius: 6px; padding: 4px 7px; font-size: 10px; color: var(--text); cursor: pointer; z-index: 7; }
+
+  .hud-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+  .hud-readout { position: absolute; top: 8px; left: 54px; background: rgba(0,0,0,0.65); color: #00e5ff; font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 6px; pointer-events: none; z-index: 6; }
+  .hud-btn-group { position: absolute; top: 8px; right: 38px; display: flex; gap: 4px; z-index: 6; }
+  .hud-mini-btn { background: rgba(0,0,0,0.65); border: 0.5px solid var(--border); border-radius: 5px; padding: 2px 6px; font-size: 9px; font-family: monospace; color: #00e5ff; cursor: pointer; user-select: none; }
+  .hud-mini-btn:hover { background: rgba(0,0,0,0.85); color: #22c55e; }
+  .hud-mini-btn.active { background: rgba(0, 229, 255, 0.25); color: #00e5ff; border-color: #00e5ff; }
 
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
@@ -82,11 +89,21 @@
   .log-item .log-ok { color: var(--success); }
   .log-item .log-err { color: var(--danger); }
 
-  .config-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .config-card { background: var(--bg2); border-radius: 12px; border: 0.5px solid var(--border); padding: 10px 12px; }
-  .config-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
-  .config-input { width: 100%; background: var(--bg3); border: 0.5px solid var(--border); border-radius: 7px; padding: 5px 8px; font-size: 11px; color: var(--text); outline: none; }
-  .config-input:focus { border-color: var(--accent); }
+  .config-section { background: var(--bg2); border-radius: 14px; border: 0.5px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .config-header-row { display: flex; justify-content: space-between; align-items: center; }
+  .config-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .config-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(59,130,246,0.12); color: var(--accent2); }
+  .config-row { display: flex; flex-direction: column; gap: 8px; }
+  .config-card { background: var(--bg3); border-radius: 10px; border: 0.5px solid var(--border); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+  .config-label-row { display: flex; justify-content: space-between; align-items: center; }
+  .config-label { font-size: 11px; font-weight: 500; color: var(--text); }
+  .config-hint { font-size: 10px; color: var(--muted); }
+  .config-input-group { display: flex; gap: 6px; align-items: center; }
+  .config-input { flex: 1; min-width: 0; background: var(--bg2); border: 0.5px solid var(--border); border-radius: 7px; padding: 6px 9px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: var(--text); outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+  .config-input:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .paste-btn { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 7px; padding: 6px 9px; font-size: 10px; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 3px; white-space: nowrap; transition: background 0.15s, border-color 0.15s, color 0.15s; user-select: none; }
+  .paste-btn:hover { background: var(--bg); border-color: var(--accent2); color: var(--accent2); }
+  .paste-btn:active { transform: scale(0.96); }
 </style>
 
 <div class="app">
@@ -120,7 +137,14 @@
     <iframe class="cam-iframe" id="camFrame" src="" frameborder="0" scrolling="no" allowfullscreen></iframe>
     <div class="cam-badge"><div class="cam-badge-dot"></div>LIVE</div>
     <div class="cam-url" id="camUrl">192.168.137.60</div>
-    <button class="expand-btn" onclick="openLink('http://192.168.137.60/')">⛶</button>
+    <canvas class="hud-canvas" id="hudCanvas"></canvas>
+    <div class="hud-readout" id="hudReadout">P: +0.0° | R: +0.0° | HDG: 000°</div>
+    <div class="hud-btn-group">
+      <button class="hud-mini-btn" id="hudLevelBtn" onclick="zeroGyro()" title="Level / Zero Gyro">LEVEL</button>
+      <button class="hud-mini-btn" id="hudDemoBtn" onclick="toggleGyroDemo()" title="Toggle Gyro Demo">DEMO</button>
+      <button class="hud-mini-btn active" id="hudToggleBtn" onclick="toggleHud()" title="Toggle Airplane HUD">HUD</button>
+    </div>
+    <button class="expand-btn" id="camExpandBtn" onclick="openCamStream()" title="Open camera in new tab">⛶</button>
   </div>
 
   <div class="controls-row">
@@ -182,21 +206,125 @@
     <div class="log-list" id="logList"></div>
   </div>
 
-  <div class="config-row">
-    <div class="config-card">
-      <div class="config-label">Robot IP</div>
-      <input class="config-input" id="robotIp" value="192.168.137.50" placeholder="192.168.x.x">
+  <div class="config-section">
+    <div class="config-header-row">
+      <span class="config-title">Connection Settings</span>
+      <span class="config-tag">Custom URL / IP</span>
     </div>
-    <div class="config-card">
-      <div class="config-label">Camera IP</div>
-      <input class="config-input" id="camIp" value="192.168.137.60" placeholder="192.168.x.x">
+    <div class="config-row">
+      <div class="config-card">
+        <div class="config-label-row">
+          <label class="config-label" for="robotIp">Connection Custom URL (Robot)</label>
+          <span class="config-hint">HTTP / HTTPS / IP</span>
+        </div>
+        <div class="config-input-group">
+          <input class="config-input" id="robotIp" placeholder="e.g. http://192.168.137.50 or https://custom-url" spellcheck="false" autocomplete="off">
+          <button type="button" class="paste-btn" onclick="pasteToInput('robotIp')" title="Paste from clipboard">📋 Paste</button>
+        </div>
+      </div>
+      <div class="config-card">
+        <div class="config-label-row">
+          <label class="config-label" for="camIp">Camera Custom URL (Stream)</label>
+          <span class="config-hint">Stream / Video URL</span>
+        </div>
+        <div class="config-input-group">
+          <input class="config-input" id="camIp" placeholder="e.g. http://192.168.137.60/ or https://custom-url" spellcheck="false" autocomplete="off">
+          <button type="button" class="paste-btn" onclick="pasteToInput('camIp')" title="Paste from clipboard">📋 Paste</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-  const ROBOT_BASE = () => `http://${document.getElementById('robotIp').value}`;
-  const CAM_BASE = () => `http://${document.getElementById('camIp').value}/`;
+  function getStoredItem(key, defaultVal) {
+    try {
+      const v = localStorage.getItem(key);
+      return v !== null && v !== '' ? v : defaultVal;
+    } catch (e) {
+      return defaultVal;
+    }
+  }
+
+  function setStoredItem(key, val) {
+    try {
+      localStorage.setItem(key, val);
+    } catch (e) {}
+  }
+
+  function normalizeRobotUrl(input) {
+    let val = (input || '').trim();
+    if (!val) val = '192.168.137.50';
+    if (!/^https?:\/\//i.test(val)) {
+      val = 'http://' + val;
+    }
+    return val.replace(/\/+$/, '');
+  }
+
+  function normalizeCamUrl(input) {
+    let val = (input || '').trim();
+    if (!val) val = '192.168.137.60';
+    if (!/^https?:\/\//i.test(val)) {
+      val = 'http://' + val;
+    }
+    try {
+      const u = new URL(val);
+      if (!u.pathname || u.pathname === '') {
+        u.pathname = '/';
+      }
+      return u.toString();
+    } catch (e) {
+      return val.includes('/') ? val : val + '/';
+    }
+  }
+
+  function getDisplayUrl(urlStr) {
+    if (!urlStr) return '';
+    const trimmed = urlStr.trim();
+    try {
+      if (/^https?:\/\//i.test(trimmed)) {
+        const u = new URL(trimmed);
+        return u.host + (u.pathname && u.pathname !== '/' ? u.pathname : '');
+      }
+    } catch (e) {}
+    return trimmed.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+  }
+
+  const ROBOT_BASE = () => normalizeRobotUrl(document.getElementById('robotIp').value);
+  const CAM_BASE = () => normalizeCamUrl(document.getElementById('camIp').value);
+
+  function buildRobotUrl(endpoint) {
+    const base = ROBOT_BASE();
+    const cleanEndpoint = (endpoint || '').replace(/^\/+/, '');
+    return `${base}/${cleanEndpoint}`;
+  }
+
+  async function pasteToInput(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          input.value = text.trim();
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      } else {
+        input.focus();
+        input.select();
+      }
+    } catch (err) {
+      input.focus();
+      input.select();
+    }
+  }
+
+  function openCamStream() {
+    const url = CAM_BASE();
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  }
+  window.openLink = openCamStream;
 
   let cmdCount = 0, startTime = Date.now(), currentCmd = null, speedTimer = null;
   let activeBtn = null, lastSentCmd = null, pingInterval = null;
@@ -228,7 +356,7 @@
   async function sendCmd(endpoint, silent=false) {
     const t0 = performance.now();
     try {
-      const res = await fetch(`${ROBOT_BASE()}/${endpoint}`, { signal: AbortSignal.timeout(1500) });
+      const res = await fetch(buildRobotUrl(endpoint), { signal: AbortSignal.timeout(2000) });
       const ms = Math.round(performance.now() - t0);
       document.getElementById('tele-lat').textContent = ms + 'ms';
       document.getElementById('tele-lat').style.color = ms < 80 ? 'var(--success)' : ms < 200 ? 'var(--warn)' : 'var(--danger)';
@@ -239,7 +367,7 @@
     } catch(e) {
       dot.className = 'status-dot error';
       statusLabel.textContent = 'Unreachable';
-      if (!silent) log(`/${endpoint} failed`, 'err');
+      if (!silent) log(`/${endpoint.replace(/^\/+/, '')} failed`, 'err');
       return false;
     }
   }
@@ -247,7 +375,7 @@
   async function ping() {
     const t0 = performance.now();
     try {
-      await fetch(`${ROBOT_BASE()}/S`, { signal: AbortSignal.timeout(1500) });
+      await fetch(buildRobotUrl('S'), { signal: AbortSignal.timeout(2000) });
       const ms = Math.round(performance.now() - t0);
       document.getElementById('tele-lat').textContent = ms + 'ms';
       dot.className = 'status-dot connected';
@@ -323,18 +451,63 @@
 
   function loadCam() {
     const url = CAM_BASE();
-    camLabel.textContent = 'Loading stream from ' + document.getElementById('camIp').value;
+    const display = getDisplayUrl(camInput.value);
+    camLabel.textContent = 'Loading stream from ' + display;
+    camOverlay.style.opacity = '1';
+    camOverlay.style.pointerEvents = 'auto';
     camFrame.src = url;
-    camFrame.onload = () => { camOverlay.style.opacity = '0'; camOverlay.style.pointerEvents = 'none'; };
-    camFrame.onerror = () => { camLabel.textContent = 'Stream unavailable'; };
+    camFrame.onload = () => {
+      camOverlay.style.opacity = '0';
+      camOverlay.style.pointerEvents = 'none';
+    };
+    camFrame.onerror = () => {
+      camLabel.textContent = 'Stream unavailable';
+    };
   }
 
-  document.getElementById('camIp').addEventListener('change', () => {
-    document.getElementById('camUrl').textContent = document.getElementById('camIp').value;
-    loadCam();
-  });
+  const robotInput = document.getElementById('robotIp');
+  const camInput = document.getElementById('camIp');
 
-  document.getElementById('robotIp').addEventListener('change', () => { ping(); });
+  // Initialize input fields from stored custom URLs or defaults
+  robotInput.value = getStoredItem('esp32_robot_url', 'http://192.168.137.50');
+  camInput.value = getStoredItem('esp32_cam_url', 'http://192.168.137.60/');
+
+  let robotInputTimer = null;
+  function handleRobotUrlChange(isImmediate = false) {
+    clearTimeout(robotInputTimer);
+    const update = () => {
+      const val = robotInput.value.trim();
+      setStoredItem('esp32_robot_url', val);
+      ping();
+      log(`Robot URL: ${ROBOT_BASE()}`, 'ok');
+    };
+    if (isImmediate) update();
+    else robotInputTimer = setTimeout(update, 350);
+  }
+
+  let camInputTimer = null;
+  function handleCamUrlChange(isImmediate = false) {
+    clearTimeout(camInputTimer);
+    const update = () => {
+      const val = camInput.value.trim();
+      setStoredItem('esp32_cam_url', val);
+      document.getElementById('camUrl').textContent = getDisplayUrl(val);
+      loadCam();
+      log(`Camera URL: ${getDisplayUrl(val)}`, 'ok');
+    };
+    if (isImmediate) update();
+    else camInputTimer = setTimeout(update, 350);
+  }
+
+  robotInput.addEventListener('input', () => handleRobotUrlChange(false));
+  robotInput.addEventListener('change', () => handleRobotUrlChange(true));
+  robotInput.addEventListener('paste', () => setTimeout(() => handleRobotUrlChange(true), 50));
+
+  camInput.addEventListener('input', () => handleCamUrlChange(false));
+  camInput.addEventListener('change', () => handleCamUrlChange(true));
+  camInput.addEventListener('paste', () => setTimeout(() => handleCamUrlChange(true), 50));
+
+  document.getElementById('camUrl').textContent = getDisplayUrl(camInput.value);
 
   setInterval(() => {
     const s = Math.floor((Date.now() - startTime)/1000);
@@ -345,4 +518,210 @@
   ping();
   setInterval(ping, 5000);
   log('Controller started', 'ok');
+
+  // ================= AIRPLANE GYROSCOPE HUD =================
+  let gyroState = {
+    pitch: 0,
+    roll: 0,
+    yaw: 0,
+    pitchOffset: 0,
+    rollOffset: 0,
+    smoothPitch: 0,
+    smoothRoll: 0,
+    smoothYaw: 0,
+    visible: true,
+    demo: false
+  };
+
+  const hudCanvas = document.getElementById('hudCanvas');
+  const hudCtx = hudCanvas ? hudCanvas.getContext('2d') : null;
+  const hudReadout = document.getElementById('hudReadout');
+  const hudToggleBtn = document.getElementById('hudToggleBtn');
+  const hudDemoBtn = document.getElementById('hudDemoBtn');
+
+  function resizeHudCanvas() {
+    if (!hudCanvas) return;
+    const rect = hudCanvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const dpr = window.devicePixelRatio || 1;
+      hudCanvas.width = rect.width * dpr;
+      hudCanvas.height = rect.height * dpr;
+    }
+  }
+  window.addEventListener('resize', resizeHudCanvas);
+
+  function toggleHud() {
+    gyroState.visible = !gyroState.visible;
+    if (hudToggleBtn) hudToggleBtn.classList.toggle('active', gyroState.visible);
+    if (hudCanvas) hudCanvas.style.display = gyroState.visible ? 'block' : 'none';
+    if (hudReadout) hudReadout.style.display = gyroState.visible ? 'block' : 'none';
+  }
+
+  function toggleGyroDemo() {
+    gyroState.demo = !gyroState.demo;
+    if (hudDemoBtn) hudDemoBtn.classList.toggle('active', gyroState.demo);
+    if (gyroState.demo) log('Gyro demo mode: ON', 'ok');
+    else log('Gyro demo mode: OFF', 'ok');
+  }
+
+  function zeroGyro() {
+    gyroState.pitchOffset += gyroState.pitch;
+    gyroState.rollOffset += gyroState.roll;
+    log('Gyro calibrated to level', 'ok');
+  }
+
+  function updateGyro(p, r, y) {
+    if (gyroState.demo) return;
+    gyroState.pitch = p;
+    gyroState.roll = r;
+    if (y !== undefined) gyroState.yaw = y;
+  }
+
+  let demoStep = 0;
+  function renderHud() {
+    requestAnimationFrame(renderHud);
+    if (!gyroState.visible || !hudCtx || !hudCanvas) return;
+
+    if (gyroState.demo) {
+      demoStep += 0.04;
+      gyroState.pitch = Math.sin(demoStep * 0.7) * 15;
+      gyroState.roll = Math.sin(demoStep) * 25;
+      gyroState.yaw = (demoStep * 15) % 360;
+    }
+
+    const currentPitch = gyroState.pitch - gyroState.pitchOffset;
+    const currentRoll = gyroState.roll - gyroState.rollOffset;
+    const currentYaw = (gyroState.yaw % 360 + 360) % 360;
+
+    gyroState.smoothPitch += (currentPitch - gyroState.smoothPitch) * 0.2;
+    gyroState.smoothRoll += (currentRoll - gyroState.smoothRoll) * 0.2;
+    gyroState.smoothYaw += (currentYaw - gyroState.smoothYaw) * 0.2;
+
+    const sp = gyroState.smoothPitch;
+    const sr = gyroState.smoothRoll;
+    const sy = gyroState.smoothYaw;
+
+    if (hudReadout) {
+      hudReadout.textContent = `P: ${sp >= 0 ? '+' : ''}${sp.toFixed(1)}° | R: ${sr >= 0 ? '+' : ''}${sr.toFixed(1)}° | HDG: ${Math.round(sy).toString().padStart(3, '0')}°`;
+    }
+
+    const w = hudCanvas.width;
+    const h = hudCanvas.height;
+    if (w === 0 || h === 0) return;
+
+    hudCtx.clearRect(0, 0, w, h);
+
+    const cx = w / 2;
+    const cy = h / 2;
+    const pxPerDeg = h / 60;
+
+    hudCtx.save();
+
+    // 1. Artificial Horizon & Pitch Ladder
+    hudCtx.translate(cx, cy);
+    hudCtx.rotate((-sr * Math.PI) / 180);
+    hudCtx.translate(0, sp * pxPerDeg);
+
+    // Horizon line
+    hudCtx.strokeStyle = '#00e5ff';
+    hudCtx.lineWidth = 2.5;
+    const gap = 35;
+    const hLen = w * 0.38;
+
+    hudCtx.beginPath();
+    hudCtx.moveTo(-hLen, 0);
+    hudCtx.lineTo(-gap, 0);
+    hudCtx.moveTo(gap, 0);
+    hudCtx.lineTo(hLen, 0);
+    hudCtx.stroke();
+
+    // Pitch ladder rungs
+    const rungs = [-30, -20, -10, 10, 20, 30];
+    for (const deg of rungs) {
+      const y = -deg * pxPerDeg;
+      const rWidth = deg % 20 === 0 ? 45 : 30;
+      const isClimb = deg > 0;
+      const tickH = isClimb ? 6 : -6;
+
+      hudCtx.strokeStyle = 'rgba(0, 229, 255, 0.8)';
+      hudCtx.lineWidth = 2;
+      hudCtx.setLineDash(isClimb ? [] : [6, 4]);
+
+      hudCtx.beginPath();
+      hudCtx.moveTo(-gap - rWidth, y);
+      hudCtx.lineTo(-gap, y);
+      hudCtx.lineTo(-gap, y + tickH);
+      hudCtx.moveTo(gap, y + tickH);
+      hudCtx.lineTo(gap, y);
+      hudCtx.lineTo(gap + rWidth, y);
+      hudCtx.stroke();
+    }
+    hudCtx.setLineDash([]);
+    hudCtx.restore();
+
+    // 2. Roll Bank Arc
+    hudCtx.save();
+    const arcRadius = Math.min(w, h) * 0.4;
+    const angles = [-60, -45, -30, -20, -10, 0, 10, 20, 30, 45, 60];
+    for (const a of angles) {
+      const rad = ((a - 90) * Math.PI) / 180;
+      const tLen = a === 0 || a % 30 === 0 ? 8 : 5;
+      const x1 = cx + arcRadius * Math.cos(rad);
+      const y1 = cy + arcRadius * Math.sin(rad);
+      const x2 = cx + (arcRadius + tLen) * Math.cos(rad);
+      const y2 = cy + (arcRadius + tLen) * Math.sin(rad);
+
+      hudCtx.strokeStyle = a === 0 ? '#ffd600' : 'rgba(0, 229, 255, 0.6)';
+      hudCtx.lineWidth = a === 0 ? 2.5 : 1.5;
+      hudCtx.beginPath();
+      hudCtx.moveTo(x1, y1);
+      hudCtx.lineTo(x2, y2);
+      hudCtx.stroke();
+    }
+
+    // Roll pointer
+    const ptrRad = ((-sr - 90) * Math.PI) / 180;
+    const px = cx + (arcRadius - 3) * Math.cos(ptrRad);
+    const py = cy + (arcRadius - 3) * Math.sin(ptrRad);
+    const pxBack = cx + (arcRadius - 12) * Math.cos(ptrRad);
+    const pyBack = cy + (arcRadius - 12) * Math.sin(ptrRad);
+
+    hudCtx.strokeStyle = '#ffd600';
+    hudCtx.lineWidth = 3;
+    hudCtx.beginPath();
+    hudCtx.moveTo(pxBack, pyBack);
+    hudCtx.lineTo(px, py);
+    hudCtx.stroke();
+    hudCtx.restore();
+
+    // 3. Fixed Aircraft Waterline Boresight
+    hudCtx.save();
+    hudCtx.strokeStyle = '#ffd600';
+    hudCtx.lineWidth = 3;
+    hudCtx.fillStyle = '#ffd600';
+    const wSpan = 32;
+    const wGap = 10;
+    const wDrop = 6;
+
+    hudCtx.beginPath();
+    hudCtx.moveTo(cx - wSpan, cy);
+    hudCtx.lineTo(cx - wGap, cy);
+    hudCtx.lineTo(cx - wGap, cy + wDrop);
+    hudCtx.moveTo(cx + wSpan, cy);
+    hudCtx.lineTo(cx + wGap, cy);
+    hudCtx.lineTo(cx + wGap, cy + wDrop);
+    hudCtx.stroke();
+
+    hudCtx.beginPath();
+    hudCtx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+    hudCtx.fill();
+    hudCtx.restore();
+  }
+
+  setTimeout(resizeHudCanvas, 100);
+  requestAnimationFrame(renderHud);
+  window.updateGyro = updateGyro;
+  window.zeroGyro = zeroGyro;
+  window.toggleHud = toggleHud;
+  window.toggleGyroDemo = toggleGyroDemo;
 </script>
