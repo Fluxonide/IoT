@@ -3,9 +3,7 @@ package com.esp32.robotcontroller.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material3.AlertDialog
@@ -21,19 +19,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun ConnectionDialog(
-    currentRobotUrl: String,
+    currentMotorUrl: String,
+    currentSensorUrl: String,
     currentCameraUrl: String,
     onDismiss: () -> Unit,
-    onSave: (robotUrl: String, cameraUrl: String) -> Unit
+    onSave: (motorUrl: String, sensorUrl: String, cameraUrl: String) -> Unit
 ) {
-    var robotUrlInput by remember { mutableStateOf(currentRobotUrl) }
+    var motorUrlInput by remember { mutableStateOf(currentMotorUrl) }
+    var sensorUrlInput by remember { mutableStateOf(currentSensorUrl) }
     var cameraUrlInput by remember { mutableStateOf(currentCameraUrl) }
     val clipboardManager = LocalClipboardManager.current
 
@@ -48,58 +47,73 @@ fun ConnectionDialog(
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Paste or enter your custom URLs below:",
+                    text = "Configure IP / URLs for all 3 ESP32 boards:",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                // Robot Custom URL Box
+                // Motor URL
                 OutlinedTextField(
-                    value = robotUrlInput,
-                    onValueChange = { robotUrlInput = it },
-                    label = { Text("Connection Custom URL (Robot)") },
-                    placeholder = { Text("http://192.168.137.50") },
+                    value = motorUrlInput,
+                    onValueChange = { motorUrlInput = it },
+                    label = { Text("Motor ESP32 URL") },
+                    placeholder = { Text("http://10.78.24.50") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
                         IconButton(
                             onClick = {
-                                clipboardManager.getText()?.text?.let { clipText ->
-                                    robotUrlInput = clipText.trim()
+                                clipboardManager.getText()?.text?.let { clip ->
+                                    motorUrlInput = clip.trim()
                                 }
                             }
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentPaste,
-                                contentDescription = "Paste Robot URL"
-                            )
+                            Icon(Icons.Default.ContentPaste, contentDescription = "Paste")
                         }
                     }
                 )
 
-                // Camera Custom URL Box
+                // Sensor URL
                 OutlinedTextField(
-                    value = cameraUrlInput,
-                    onValueChange = { cameraUrlInput = it },
-                    label = { Text("Camera Stream URL (WebSocket)") },
-                    placeholder = { Text("ws://192.168.137.60/ws") },
+                    value = sensorUrlInput,
+                    onValueChange = { sensorUrlInput = it },
+                    label = { Text("Sensor ESP32 URL") },
+                    placeholder = { Text("http://10.78.24.51") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
                         IconButton(
                             onClick = {
-                                clipboardManager.getText()?.text?.let { clipText ->
-                                    cameraUrlInput = clipText.trim()
+                                clipboardManager.getText()?.text?.let { clip ->
+                                    sensorUrlInput = clip.trim()
                                 }
                             }
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentPaste,
-                                contentDescription = "Paste Camera URL"
-                            )
+                            Icon(Icons.Default.ContentPaste, contentDescription = "Paste")
+                        }
+                    }
+                )
+
+                // Camera URL
+                OutlinedTextField(
+                    value = cameraUrlInput,
+                    onValueChange = { cameraUrlInput = it },
+                    label = { Text("ESP32-CAM Stream / WS URL") },
+                    placeholder = { Text("http://10.78.24.60") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                clipboardManager.getText()?.text?.let { clip ->
+                                    cameraUrlInput = clip.trim()
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.ContentPaste, contentDescription = "Paste")
                         }
                     }
                 )
@@ -110,8 +124,9 @@ fun ConnectionDialog(
                 ) {
                     TextButton(
                         onClick = {
-                            robotUrlInput = "http://192.168.137.50"
-                            cameraUrlInput = "ws://192.168.137.60/ws"
+                            motorUrlInput = "http://10.78.24.50"
+                            sensorUrlInput = "http://10.78.24.51"
+                            cameraUrlInput = "http://10.78.24.60"
                         }
                     ) {
                         Text("Reset to Defaults")
@@ -122,7 +137,7 @@ fun ConnectionDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onSave(robotUrlInput, cameraUrlInput)
+                    onSave(motorUrlInput, sensorUrlInput, cameraUrlInput)
                     onDismiss()
                 }
             ) {

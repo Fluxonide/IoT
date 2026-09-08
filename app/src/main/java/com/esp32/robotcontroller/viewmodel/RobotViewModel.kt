@@ -6,6 +6,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.esp32.robotcontroller.model.DeviceStatus
+import com.esp32.robotcontroller.model.SensorData
 import com.esp32.robotcontroller.network.RobotApiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,13 +20,20 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
 import org.json.JSONObject
+import java.io.BufferedInputStream
+import java.io.ByteArrayOutputStream
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.atan2
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 enum class CameraState {
     DISCONNECTED,   // Not started or stopped
@@ -36,24 +45,96 @@ enum class CameraState {
 class RobotViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = application.getSharedPreferences("robot_controller_prefs", Context.MODE_PRIVATE)
 
-    private val initialRobotUrl = RobotApiService.sanitizeControlUrl(
-        prefs.getString("robot_url", "http://192.168.137.50") ?: "http://192.168.137.50"
+    private val initialMotorUrl = RobotApiService.sanitizeHttpUrl(
+        prefs.getString("motor_url", "http://10.78.24.50") ?: "http://10.78.24.50",
+        "http://10.78.24.50"
     )
-    private val initialCameraUrl = RobotApiService.sanitizeCameraWsUrl(
-        prefs.getString("camera_url", "ws://192.168.137.60/ws") ?: "ws://192.168.137.60/ws"
+    private val initialSensorUrl = RobotApiService.sanitizeHttpUrl(
+        prefs.getString("sensor_url", "http://10.78.24.51") ?: "http://10.78.24.51",
+        "http://10.78.24.51"
+    )
+    private val initialCameraUrl = RobotApiService.sanitizeHttpUrl(
+        prefs.getString("camera_url", "http://10.78.24.60") ?: "http://10.78.24.60",
+        "http://10.78.24.60"
     )
 
     private val apiService = RobotApiService(
-        controlBaseUrl = initialRobotUrl,
-        cameraWsUrl = initialCameraUrl
+        motorBaseUrl = initialMotorUrl,
+        sensorBaseUrl = initialSensorUrl,
+        cameraBaseUrl = initialCameraUrl
     )
 
     // Configured Custom URLs
-    private val _robotUrl = MutableStateFlow(initialRobotUrl)
-    val robotUrl: StateFlow<String> = _robotUrl.asStateFlow()
+    private val _motorUrl = MutableStateFlow(initialMotorUrl)
+    val motorUrl: StateFlow<String> = _motorUrl.asStateFlow()
+    // For backwards compatibility
+    val robotUrl: StateFlow<String> = _motorUrl
+
+    private val _sensorUrl = MutableStateFlow(initialSensorUrl)
+    val sensorUrl: StateFlow<String> = _sensorUrl.asStateFlow()
 
     private val _cameraUrl = MutableStateFlow(initialCameraUrl)
     val cameraUrl: StateFlow<String> = _cameraUrl.asStateFlow()
+
+    // Device Online / Offline Status
+    private val _isMotorOnline = MutableStateFlow(false)
+    val isMotorOnline: StateFlow<Boolean> = _isMotorOnline.asStateFlow()
+    val isConnected: StateFlow<Boolean> = _isMotorOnline // alias
+
+    private val _isSensorOnline = MutableStateFlow(false)
+    val isSensorOnline: StateFlow<Boolean> = _isSensorOnline.asStateFlow()
+
+    private val _isCameraOnline = MutableStateFlow(false)
+    val isCameraOnline: StateFlow<Boolean> = _isCameraOnline.asStateFlow()
+
+    // Device Details
+    private val _motorStatus = MutableStateFlow(DeviceStatus(ip = "10.78.24.50"))
+    val motorStatus: StateFlow<DeviceStatus> = _motorStatus.asStateFlow()
+
+    private val _sensorStatus = MutableStateFlow(DeviceStatus(ip = "10.78.24.51"))
+    val sensorStatus: StateFlow<DeviceStatus> = _sensorStatus.asStateFlow()
+
+    private val _cameraStatus = MutableStateFlow(DeviceStatus(ip = "10.78.24.60"))
+    val cameraStatus: StateFlow<DeviceStatus> = _cameraStatus.asStateFlow()
+
+    // Live Sensor Telemetry
+    private val _sensorData = MutableStateFlow(SensorData())
+    val sensorData: StateFlow<SensorData> = _sensorData.asStateFlow()
+
+    // Historical Sensor Graphs (capped at 100 points)
+    private val maxPoints = 100
+    private val _distanceHistory = MutableStateFlow<List<Float>>(emptyList())
+    val distanceHistory: StateFlow<List<Float>> = _distanceHistory.asStateFlow()
+
+    private val _temperatureHistory = MutableStateFlow<List<Float>>(emptyList())
+    val temperatureHistory: StateFlow<List<Float>> = _temperatureHistory.asStateFlow()
+
+    private val _humidityHistory = MutableStateFlow<List<Float>>(emptyList())
+    val humidityHistory: StateFlow<List<Float>> = _humidityHistory.asStateFlow()
+
+    private val _mqHistory = MutableStateFlow<List<Float>>(emptyList())
+    val mqHistory: StateFlow<List<Float>> = _mqHistory.asStateFlow()
+
+    private val _waterHistory = MutableStateFlow<List<Float>>(emptyList())
+    val waterHistory: StateFlow<List<Float>> = _waterHistory.asStateFlow()
+
+    private val _axHistory = MutableStateFlow<List<Float>>(emptyList())
+    val axHistory: StateFlow<List<Float>> = _axHistory.asStateFlow()
+
+    private val _ayHistory = MutableStateFlow<List<Float>>(emptyList())
+    val ayHistory: StateFlow<List<Float>> = _ayHistory.asStateFlow()
+
+    private val _azHistory = MutableStateFlow<List<Float>>(emptyList())
+    val azHistory: StateFlow<List<Float>> = _azHistory.asStateFlow()
+
+    private val _gxHistory = MutableStateFlow<List<Float>>(emptyList())
+    val gxHistory: StateFlow<List<Float>> = _gxHistory.asStateFlow()
+
+    private val _gyHistory = MutableStateFlow<List<Float>>(emptyList())
+    val gyHistory: StateFlow<List<Float>> = _gyHistory.asStateFlow()
+
+    private val _gzHistory = MutableStateFlow<List<Float>>(emptyList())
+    val gzHistory: StateFlow<List<Float>> = _gzHistory.asStateFlow()
 
     // Gyroscope Telemetry State (Pitch, Roll, Yaw)
     private val _pitch = MutableStateFlow(0f)
@@ -71,6 +152,10 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     private val _isGyroDemoMode = MutableStateFlow(false)
     val isGyroDemoMode: StateFlow<Boolean> = _isGyroDemoMode.asStateFlow()
 
+    private var computedRoll = 0f
+    private var computedPitch = 0f
+    private var previousAttitudeTime = System.currentTimeMillis()
+
     private var rawPitch = 0f
     private var rawRoll = 0f
     private var rawYaw = 0f
@@ -78,13 +163,14 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     private var rollOffset = 0f
     private var demoJob: Job? = null
 
-    // Connection state
-    private val _isConnected = MutableStateFlow(false)
-    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
-
-    // Speed
-    private val _currentSpeed = MutableStateFlow(128)
+    // Motor Speed (default 180 as in test2.html)
+    private val _currentSpeed = MutableStateFlow(180)
     val currentSpeed: StateFlow<Int> = _currentSpeed.asStateFlow()
+
+    // Servo Pan Angle (20° to 160°, default 90°)
+    private val _servoAngle = MutableStateFlow(90)
+    val servoAngle: StateFlow<Int> = _servoAngle.asStateFlow()
+    val isUserAdjustingServo = AtomicBoolean(false)
 
     // Camera frame
     private val _cameraFrame = MutableStateFlow<Bitmap?>(null)
@@ -102,56 +188,53 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     private val _cameraState = MutableStateFlow(CameraState.DISCONNECTED)
     val cameraState: StateFlow<CameraState> = _cameraState.asStateFlow()
 
-    // Retry counter for camera connection
     private val _cameraRetryCount = MutableStateFlow(0)
     val cameraRetryCount: StateFlow<Int> = _cameraRetryCount.asStateFlow()
 
-    // Camera error message
     private val _cameraError = MutableStateFlow<String?>(null)
     val cameraError: StateFlow<String?> = _cameraError.asStateFlow()
 
-    // Track last sent command timestamp to prevent excessive duplicate commands
+    // Commands & Debounce Flows
     private var lastCommandTime = 0L
-    private val commandThrottleMs = 100L // Allow command every 100ms
-
-    private var cameraWebSocket: WebSocket? = null
-    private var reconnectJob: Job? = null
-    private var connectionCheckJob: Job? = null
-    private var uptimeJob: Job? = null
-    private val isDecoding = AtomicBoolean(false)  // prevent frame queue buildup
-
-    // Reusable decode options to reduce GC pressure
+    private val commandThrottleMs = 100L
+    private val isDecoding = AtomicBoolean(false)
     private val decodeOptions = BitmapFactory.Options().apply {
         inMutable = true
-        inPreferredConfig = Bitmap.Config.RGB_565  // half the memory of ARGB_8888
+        inPreferredConfig = Bitmap.Config.RGB_565
     }
 
-    // Speed debounce flow
     private val speedFlow = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    private val servoFlow = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+
+    private var cameraWebSocket: WebSocket? = null
+    private var httpMjpegJob: Job? = null
+    private var reconnectJob: Job? = null
+    private var sensorPollJob: Job? = null
+    private var statusPollJob: Job? = null
+    private var uptimeJob: Job? = null
 
     init {
-        startConnectionMonitor()
         startUptimeCounter()
+        startSensorPolling()
+        startDeviceStatusPolling()
         collectSpeedChanges()
+        collectServoChanges()
     }
 
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     private fun collectSpeedChanges() {
         viewModelScope.launch {
-            speedFlow
-                .debounce(150)
-                .collectLatest { speed ->
-                    apiService.setSpeed(speed)
-                }
+            speedFlow.debounce(150).collectLatest { speed ->
+                apiService.setSpeed(speed)
+            }
         }
     }
 
-    private fun startConnectionMonitor() {
-        connectionCheckJob = viewModelScope.launch(Dispatchers.IO) {
-            while (isActive) {
-                val connected = apiService.checkConnection()
-                _isConnected.value = connected
-                delay(3000)
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    private fun collectServoChanges() {
+        viewModelScope.launch {
+            servoFlow.debounce(50).collectLatest { angle ->
+                apiService.setServo(angle)
             }
         }
     }
@@ -165,16 +248,122 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /* ================= 200ms Sensor Polling ================= */
+
+    private fun startSensorPolling() {
+        sensorPollJob?.cancel()
+        sensorPollJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                val result = apiService.getSensorData()
+                when (result) {
+                    is RobotApiService.Result.Success -> {
+                        val data = result.data
+                        _isSensorOnline.value = true
+                        _sensorData.value = data
+
+                        // Update historical arrays
+                        _distanceHistory.value = pushHistory(_distanceHistory.value, data.distance)
+                        _temperatureHistory.value = pushHistory(_temperatureHistory.value, data.temperature)
+                        _humidityHistory.value = pushHistory(_humidityHistory.value, data.humidity)
+                        _mqHistory.value = pushHistory(_mqHistory.value, data.mq)
+                        _waterHistory.value = pushHistory(_waterHistory.value, data.water)
+                        _axHistory.value = pushHistory(_axHistory.value, data.ax)
+                        _ayHistory.value = pushHistory(_ayHistory.value, data.ay)
+                        _azHistory.value = pushHistory(_azHistory.value, data.az)
+                        _gxHistory.value = pushHistory(_gxHistory.value, data.gx)
+                        _gyHistory.value = pushHistory(_gyHistory.value, data.gy)
+                        _gzHistory.value = pushHistory(_gzHistory.value, data.gz)
+
+                        // Update Aircraft Attitude using complementary filter (from test2.html)
+                        updateAttitudeFromSensor(data.ax, data.ay, data.az, data.gx, data.gy)
+                    }
+                    is RobotApiService.Result.Error -> {
+                        _isSensorOnline.value = false
+                    }
+                }
+                delay(200) // 5 updates per second
+            }
+        }
+    }
+
+    private fun pushHistory(list: List<Float>, value: Float): List<Float> {
+        val next = ArrayList(list)
+        next.add(value)
+        if (next.size > maxPoints) {
+            next.removeAt(0)
+        }
+        return next
+    }
+
+    /* ================= 2000ms Status Polling ================= */
+
+    private fun startDeviceStatusPolling() {
+        statusPollJob?.cancel()
+        statusPollJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                // Motor status
+                when (val motorRes = apiService.getMotorStatus()) {
+                    is RobotApiService.Result.Success -> {
+                        _isMotorOnline.value = true
+                        _motorStatus.value = motorRes.data
+                    }
+                    is RobotApiService.Result.Error -> {
+                        _isMotorOnline.value = false
+                    }
+                }
+
+                // Camera status
+                when (val camRes = apiService.getCameraStatus()) {
+                    is RobotApiService.Result.Success -> {
+                        _isCameraOnline.value = true
+                        _cameraStatus.value = camRes.data
+                        val s = camRes.data.servo.removeSuffix("°").toIntOrNull()
+                        if (s != null && !isUserAdjustingServo.get()) {
+                            _servoAngle.value = s
+                        }
+                    }
+                    is RobotApiService.Result.Error -> {
+                        _isCameraOnline.value = false
+                    }
+                }
+
+                delay(2000)
+            }
+        }
+    }
+
+    /* ================= Complementary Filter for Aircraft ================= */
+
+    private fun updateAttitudeFromSensor(ax: Float, ay: Float, az: Float, gx: Float, gy: Float) {
+        if (_isGyroDemoMode.value) return
+
+        val now = System.currentTimeMillis()
+        var dt = (now - previousAttitudeTime) / 1000f
+        previousAttitudeTime = now
+        if (dt <= 0f || dt > 1f) dt = 0.02f
+
+        val accelRoll = Math.toDegrees(atan2(ay.toDouble(), az.toDouble())).toFloat()
+        val accelPitch = Math.toDegrees(atan2(-ax.toDouble(), sqrt((ay * ay + az * az).toDouble()))).toFloat()
+
+        val gyroRoll = computedRoll + gx * dt
+        val gyroPitch = computedPitch + gy * dt
+
+        val alpha = 0.96f
+        computedRoll = (alpha * gyroRoll + (1f - alpha) * accelRoll).coerceIn(-90f, 90f)
+        computedPitch = (alpha * gyroPitch + (1f - alpha) * accelPitch).coerceIn(-90f, 90f)
+
+        rawRoll = computedRoll
+        rawPitch = computedPitch
+        updateCalibratedValues()
+    }
+
+    /* ================= Motor & Direction Controls ================= */
+
     fun sendDirection(direction: String) {
         val currentTime = System.currentTimeMillis()
-        
-        // Throttle commands but allow them through periodically for continuous movement
-        if (currentTime - lastCommandTime < commandThrottleMs) {
-            return
-        }
-        
+        if (currentTime - lastCommandTime < commandThrottleMs) return
         lastCommandTime = currentTime
-        
+
         _currentDirection.value = when (direction) {
             "F" -> "FORWARD"
             "B" -> "BACKWARD"
@@ -203,14 +392,95 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         speedFlow.tryEmit(speed)
     }
 
+    /* ================= Servo Pan Controls ================= */
+
+    fun setServoAngle(angle: Int) {
+        val clamped = angle.coerceIn(20, 160)
+        _servoAngle.value = clamped
+        servoFlow.tryEmit(clamped)
+    }
+
+    /* ================= Camera Stream ================= */
+
     fun startCameraStream() {
-        if (cameraWebSocket != null) return
+        if (cameraWebSocket != null || httpMjpegJob != null) return
 
         _cameraRetryCount.value = 0
         _cameraError.value = null
         _cameraState.value = CameraState.CONNECTING
 
-        connectWebSocket()
+        val camUrl = _cameraUrl.value
+        if (camUrl.startsWith("ws://", ignoreCase = true) || camUrl.startsWith("wss://", ignoreCase = true)) {
+            connectWebSocket()
+        } else {
+            connectHttpMjpeg()
+        }
+    }
+
+    private fun connectHttpMjpeg() {
+        httpMjpegJob?.cancel()
+        httpMjpegJob = viewModelScope.launch(Dispatchers.IO) {
+            _cameraState.value = CameraState.CONNECTING
+            val streamUrl = apiService.getCameraStreamUrl()
+            val mjpegClient = OkHttpClient.Builder()
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .build()
+
+            try {
+                val request = Request.Builder().url(streamUrl).build()
+                val response = mjpegClient.newCall(request).execute()
+                if (!response.isSuccessful) {
+                    throw Exception("HTTP ${response.code}")
+                }
+
+                _cameraState.value = CameraState.STREAMING
+                _isCameraOnline.value = true
+                _cameraError.value = null
+
+                val inputStream = BufferedInputStream(response.body!!.byteStream())
+                val buffer = ByteArray(4096)
+                val frameBuffer = ByteArrayOutputStream()
+                var inFrame = false
+                var prevByte = 0
+
+                while (isActive) {
+                    val bytesRead = inputStream.read(buffer)
+                    if (bytesRead == -1) break
+
+                    for (i in 0 until bytesRead) {
+                        val currentByte = buffer[i].toInt() and 0xFF
+                        if (!inFrame) {
+                            if (prevByte == 0xFF && currentByte == 0xD8) {
+                                inFrame = true
+                                frameBuffer.reset()
+                                frameBuffer.write(0xFF)
+                                frameBuffer.write(0xD8)
+                            }
+                        } else {
+                            frameBuffer.write(currentByte)
+                            if (prevByte == 0xFF && currentByte == 0xD9) {
+                                inFrame = false
+                                val jpeg = frameBuffer.toByteArray()
+                                if (isDecoding.compareAndSet(false, true)) {
+                                    val bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, decodeOptions)
+                                    if (bitmap != null) {
+                                        _cameraFrame.value = bitmap
+                                    }
+                                    isDecoding.set(false)
+                                }
+                            }
+                        }
+                        prevByte = currentByte
+                    }
+                }
+            } catch (e: Exception) {
+                _cameraRetryCount.value++
+                _cameraError.value = e.message ?: "Stream failed"
+                _cameraState.value = CameraState.ERROR
+                scheduleReconnect()
+            }
+        }
     }
 
     private fun connectWebSocket() {
@@ -220,13 +490,12 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         cameraWebSocket = apiService.connectCameraWebSocket(object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 _cameraState.value = CameraState.STREAMING
+                _isCameraOnline.value = true
                 _cameraRetryCount.value = 0
                 _cameraError.value = null
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                // Drop frame if previous decode is still in-flight
-                // This prevents frame queue buildup which causes latency
                 if (!isDecoding.compareAndSet(false, true)) return
 
                 viewModelScope.launch(Dispatchers.Default) {
@@ -253,8 +522,6 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
                 _cameraError.value = t.message ?: "Connection failed"
                 _cameraState.value = CameraState.ERROR
                 cameraWebSocket = null
-
-                // Auto-reconnect with backoff
                 scheduleReconnect()
             }
 
@@ -265,7 +532,6 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 cameraWebSocket = null
                 if (_cameraState.value == CameraState.STREAMING) {
-                    // Unexpected close — reconnect
                     _cameraState.value = CameraState.ERROR
                     _cameraError.value = "Connection closed (code $code)"
                     _cameraRetryCount.value++
@@ -278,12 +544,10 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     private fun scheduleReconnect() {
         reconnectJob?.cancel()
         reconnectJob = viewModelScope.launch {
-            // Give the ESP32-CAM time to clean up the old connection
-            // before we reconnect. Too fast = disconnect loop.
             val backoff = 1000L + (_cameraRetryCount.value.coerceAtMost(4)) * 1000L
             delay(backoff)
             if (_cameraState.value != CameraState.DISCONNECTED) {
-                connectWebSocket()
+                startCameraStream()
             }
         }
     }
@@ -291,6 +555,8 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     fun stopCameraStream() {
         reconnectJob?.cancel()
         reconnectJob = null
+        httpMjpegJob?.cancel()
+        httpMjpegJob = null
         cameraWebSocket?.close(1000, "User stopped")
         cameraWebSocket = null
         _cameraState.value = CameraState.DISCONNECTED
@@ -304,28 +570,32 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         startCameraStream()
     }
 
-    fun updateConnectionUrls(newRobotUrl: String, newCameraUrl: String) {
-        val sanitizedRobot = RobotApiService.sanitizeControlUrl(newRobotUrl)
-        val sanitizedCamera = RobotApiService.sanitizeCameraWsUrl(newCameraUrl)
+    fun updateConnectionUrls(newMotorUrl: String, newSensorUrl: String, newCameraUrl: String) {
+        val sanitizedMotor = RobotApiService.sanitizeHttpUrl(newMotorUrl, "http://10.78.24.50")
+        val sanitizedSensor = RobotApiService.sanitizeHttpUrl(newSensorUrl, "http://10.78.24.51")
+        val sanitizedCamera = RobotApiService.sanitizeHttpUrl(newCameraUrl, "http://10.78.24.60")
 
-        _robotUrl.value = sanitizedRobot
+        _motorUrl.value = sanitizedMotor
+        _sensorUrl.value = sanitizedSensor
         _cameraUrl.value = sanitizedCamera
 
         prefs.edit()
-            .putString("robot_url", sanitizedRobot)
+            .putString("motor_url", sanitizedMotor)
+            .putString("sensor_url", sanitizedSensor)
             .putString("camera_url", sanitizedCamera)
+            // Backwards compatibility
+            .putString("robot_url", sanitizedMotor)
             .apply()
 
-        apiService.updateUrls(sanitizedRobot, sanitizedCamera)
-
-        // Restart camera stream with new WebSocket URL
+        apiService.updateUrls(sanitizedMotor, sanitizedSensor, sanitizedCamera)
         retryCameraStream()
+        startSensorPolling()
+        startDeviceStatusPolling()
+    }
 
-        // Trigger immediate connection check
-        viewModelScope.launch(Dispatchers.IO) {
-            val connected = apiService.checkConnection()
-            _isConnected.value = connected
-        }
+    // Backwards compatibility overload
+    fun updateConnectionUrls(newRobotUrl: String, newCameraUrl: String) {
+        updateConnectionUrls(newRobotUrl, _sensorUrl.value, newCameraUrl)
     }
 
     fun emergencyStop() {
@@ -433,17 +703,16 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         } catch (_: Exception) {
-            // Ignore non-telemetry messages
+            // Ignore
         }
     }
 
     override fun onCleared() {
         super.onCleared()
-        cameraWebSocket?.close(1000, "ViewModel cleared")
-        reconnectJob?.cancel()
-        connectionCheckJob?.cancel()
+        stopCameraStream()
+        sensorPollJob?.cancel()
+        statusPollJob?.cancel()
         uptimeJob?.cancel()
         demoJob?.cancel()
     }
 }
-
