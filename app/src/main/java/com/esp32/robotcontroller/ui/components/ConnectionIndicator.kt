@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,7 +29,8 @@ import com.esp32.robotcontroller.ui.theme.SurfaceCard
 @Composable
 fun ConnectionIndicator(
     isConnected: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     val statusColor by animateColorAsState(
         targetValue = if (isConnected) StatusConnected else StatusDisconnected,
@@ -37,6 +42,7 @@ fun ConnectionIndicator(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(SurfaceCard.copy(alpha = 0.85f))
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .padding(horizontal = 14.dp, vertical = 8.dp)
     ) {
         Row(
@@ -54,6 +60,14 @@ fun ConnectionIndicator(
                 style = MaterialTheme.typography.labelLarge,
                 color = statusColor
             )
+            if (onClick != null) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Connection Settings",
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                )
+            }
         }
     }
 }

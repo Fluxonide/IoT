@@ -10,8 +10,8 @@ import okhttp3.WebSocketListener
 import java.util.concurrent.TimeUnit
 
 class RobotApiService(
-    private val controlBaseUrl: String = "http://192.168.137.50",
-    private val cameraWsUrl: String = "ws://192.168.137.60/ws"
+    private var controlBaseUrl: String = "http://192.168.137.50",
+    private var cameraWsUrl: String = "ws://192.168.137.60/ws"
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(3, TimeUnit.SECONDS)
@@ -31,10 +31,19 @@ class RobotApiService(
         data class Error(val message: String) : Result<Nothing>()
     }
 
+    fun updateUrls(newControlUrl: String, newCameraWsUrl: String) {
+        this.controlBaseUrl = sanitizeControlUrl(newControlUrl)
+        this.cameraWsUrl = sanitizeCameraWsUrl(newCameraWsUrl)
+    }
+
+    fun getControlUrl(): String = controlBaseUrl
+    fun getCameraWsUrl(): String = cameraWsUrl
+
     suspend fun sendCommand(endpoint: String): Result<String> = withContext(Dispatchers.IO) {
         try {
+            val cleanEndpoint = if (endpoint.startsWith("/")) endpoint else "/$endpoint"
             val request = Request.Builder()
-                .url("$controlBaseUrl$endpoint")
+                .url("${controlBaseUrl.trimEnd('/')}$cleanEndpoint")
                 .get()
                 .build()
             val response = client.newCall(request).execute()
@@ -69,12 +78,47 @@ class RobotApiService(
     fun checkConnection(): Boolean {
         return try {
             val request = Request.Builder()
-                .url("$controlBaseUrl/S")
+                .url("${controlBaseUrl.trimEnd('/')}/S")
                 .build()
             val response = client.newCall(request).execute()
             response.isSuccessful
         } catch (_: Exception) {
             false
+        }
+    }
+
+    companion object {
+        fun sanitizeControlUrl(url: String): String {
+            val trimmed = url.trim()
+            if (trimmed.isEmpty()) return "http://192.168.137.50"
+            val withScheme = if (!trimmed.startsWith("http://", ignoreCase = true) &&
+                !trimmed.startsWith("https://", ignoreCase = true)
+            ) {
+                "http://$trimmed"
+            } else {
+                trimmed
+            }
+            return withScheme.trimEnd('/')
+        }
+
+        fun sanitizeCameraWsUrl(url: String): String {
+            val trimmed = url.trim()
+            if (trimmed.isEmpty()) return "ws://192.168.137.60/ws"
+            var result = trimmed
+            if (result.startsWith("http://", ignoreCase = true)) {
+                result = "ws://" + result.substring(7)
+            } else if (result.startsWith("https://", ignoreCase = true)) {
+                result = "wss://" + result.substring(8)
+            } else if (!result.startsWith("ws://", ignoreCase = true) &&
+                !result.startsWith("wss://", ignoreCase = true)
+            ) {
+                result = "ws://$result"
+            }
+            val withoutScheme = result.substringAfter("://")
+            if (!withoutScheme.contains("/")) {
+                result = "$result/ws"
+            }
+            return result
         }
     }
 }

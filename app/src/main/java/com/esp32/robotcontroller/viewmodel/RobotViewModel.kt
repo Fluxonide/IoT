@@ -1,8 +1,10 @@
 package com.esp32.robotcontroller.viewmodel
 
+import android.app.Application
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.esp32.robotcontroller.network.RobotApiService
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +22,9 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.sin
 
 enum class CameraState {
     DISCONNECTED,   // Not started or stopped
@@ -29,8 +33,50 @@ enum class CameraState {
     ERROR           // Connection failed, will retry
 }
 
-class RobotViewModel : ViewModel() {
-    private val apiService = RobotApiService()
+class RobotViewModel(application: Application) : AndroidViewModel(application) {
+    private val prefs = application.getSharedPreferences("robot_controller_prefs", Context.MODE_PRIVATE)
+
+    private val initialRobotUrl = RobotApiService.sanitizeControlUrl(
+        prefs.getString("robot_url", "http://192.168.137.50") ?: "http://192.168.137.50"
+    )
+    private val initialCameraUrl = RobotApiService.sanitizeCameraWsUrl(
+        prefs.getString("camera_url", "ws://192.168.137.60/ws") ?: "ws://192.168.137.60/ws"
+    )
+
+    private val apiService = RobotApiService(
+        controlBaseUrl = initialRobotUrl,
+        cameraWsUrl = initialCameraUrl
+    )
+
+    // Configured Custom URLs
+    private val _robotUrl = MutableStateFlow(initialRobotUrl)
+    val robotUrl: StateFlow<String> = _robotUrl.asStateFlow()
+
+    private val _cameraUrl = MutableStateFlow(initialCameraUrl)
+    val cameraUrl: StateFlow<String> = _cameraUrl.asStateFlow()
+
+    // Gyroscope Telemetry State (Pitch, Roll, Yaw)
+    private val _pitch = MutableStateFlow(0f)
+    val pitch: StateFlow<Float> = _pitch.asStateFlow()
+
+    private val _roll = MutableStateFlow(0f)
+    val roll: StateFlow<Float> = _roll.asStateFlow()
+
+    private val _yaw = MutableStateFlow(0f)
+    val yaw: StateFlow<Float> = _yaw.asStateFlow()
+
+    private val _isHudVisible = MutableStateFlow(true)
+    val isHudVisible: StateFlow<Boolean> = _isHudVisible.asStateFlow()
+
+    private val _isGyroDemoMode = MutableStateFlow(false)
+    val isGyroDemoMode: StateFlow<Boolean> = _isGyroDemoMode.asStateFlow()
+
+    private var rawPitch = 0f
+    private var rawRoll = 0f
+    private var rawYaw = 0f
+    private var pitchOffset = 0f
+    private var rollOffset = 0f
+    private var demoJob: Job? = null
 
     // Connection state
     private val _isConnected = MutableStateFlow(false)
@@ -198,6 +244,10 @@ class RobotViewModel : ViewModel() {
                 }
             }
 
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                parseTelemetryMessage(text)
+            }
+
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 _cameraRetryCount.value++
                 _cameraError.value = t.message ?: "Connection failed"
@@ -254,6 +304,30 @@ class RobotViewModel : ViewModel() {
         startCameraStream()
     }
 
+    fun updateConnectionUrls(newRobotUrl: String, newCameraUrl: String) {
+        val sanitizedRobot = RobotApiService.sanitizeControlUrl(newRobotUrl)
+        val sanitizedCamera = RobotApiService.sanitizeCameraWsUrl(newCameraUrl)
+
+        _robotUrl.value = sanitizedRobot
+        _cameraUrl.value = sanitizedCamera
+
+        prefs.edit()
+            .putString("robot_url", sanitizedRobot)
+            .putString("camera_url", sanitizedCamera)
+            .apply()
+
+        apiService.updateUrls(sanitizedRobot, sanitizedCamera)
+
+        // Restart camera stream with new WebSocket URL
+        retryCameraStream()
+
+        // Trigger immediate connection check
+        viewModelScope.launch(Dispatchers.IO) {
+            val connected = apiService.checkConnection()
+            _isConnected.value = connected
+        }
+    }
+
     fun emergencyStop() {
         lastCommandTime = 0L
         _currentDirection.value = "STOP"
@@ -265,12 +339,111 @@ class RobotViewModel : ViewModel() {
         }
     }
 
+    fun toggleHud() {
+        _isHudVisible.value = !_isHudVisible.value
+    }
+
+    fun setHudVisible(visible: Boolean) {
+        _isHudVisible.value = visible
+    }
+
+    fun toggleDemoMode() {
+        val next = !_isGyroDemoMode.value
+        _isGyroDemoMode.value = next
+        if (next) startGyroDemo() else stopGyroDemo()
+    }
+
+    fun zeroGyro() {
+        pitchOffset = rawPitch
+        rollOffset = rawRoll
+        updateCalibratedValues()
+    }
+
+    fun updateGyroData(p: Float, r: Float, y: Float) {
+        if (_isGyroDemoMode.value) return
+        rawPitch = p
+        rawRoll = r
+        rawYaw = y
+        updateCalibratedValues()
+    }
+
+    private fun updateCalibratedValues() {
+        _pitch.value = rawPitch - pitchOffset
+        _roll.value = rawRoll - rollOffset
+        _yaw.value = (rawYaw % 360f + 360f) % 360f
+    }
+
+    private fun startGyroDemo() {
+        demoJob?.cancel()
+        demoJob = viewModelScope.launch {
+            var step = 0f
+            while (isActive && _isGyroDemoMode.value) {
+                step += 0.05f
+                val demoPitch = (sin(step * 0.7f) * 15f).toFloat()
+                val demoRoll = (sin(step.toDouble()) * 25.0).toFloat()
+                val demoYaw = ((step * 10f) % 360f)
+                _pitch.value = demoPitch
+                _roll.value = demoRoll
+                _yaw.value = demoYaw
+                delay(33)
+            }
+        }
+    }
+
+    private fun stopGyroDemo() {
+        demoJob?.cancel()
+        demoJob = null
+        updateCalibratedValues()
+    }
+
+    private fun parseTelemetryMessage(text: String) {
+        try {
+            val trimmed = text.trim()
+            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                val json = JSONObject(trimmed)
+                val p = when {
+                    json.has("pitch") -> json.getDouble("pitch").toFloat()
+                    json.has("p") -> json.getDouble("p").toFloat()
+                    json.has("x") -> json.getDouble("x").toFloat()
+                    else -> null
+                }
+                val r = when {
+                    json.has("roll") -> json.getDouble("roll").toFloat()
+                    json.has("r") -> json.getDouble("r").toFloat()
+                    json.has("y") -> json.getDouble("y").toFloat()
+                    else -> null
+                }
+                val y = when {
+                    json.has("yaw") -> json.getDouble("yaw").toFloat()
+                    json.has("heading") -> json.getDouble("heading").toFloat()
+                    json.has("z") -> json.getDouble("z").toFloat()
+                    else -> null
+                }
+                if (p != null || r != null) {
+                    updateGyroData(p ?: rawPitch, r ?: rawRoll, y ?: rawYaw)
+                }
+            } else if (trimmed.contains(",") || trimmed.startsWith("GYRO:", ignoreCase = true)) {
+                val clean = trimmed.removePrefix("GYRO:").removePrefix("gyro:").trim()
+                val parts = clean.split(",").mapNotNull { it.trim().toFloatOrNull() }
+                if (parts.size >= 2) {
+                    val p = parts[0]
+                    val r = parts[1]
+                    val y = if (parts.size >= 3) parts[2] else rawYaw
+                    updateGyroData(p, r, y)
+                }
+            }
+        } catch (_: Exception) {
+            // Ignore non-telemetry messages
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         cameraWebSocket?.close(1000, "ViewModel cleared")
         reconnectJob?.cancel()
         connectionCheckJob?.cancel()
         uptimeJob?.cancel()
+        demoJob?.cancel()
     }
 }
 

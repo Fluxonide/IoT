@@ -28,10 +28,22 @@ import com.esp32.robotcontroller.ui.theme.Primary
 import com.esp32.robotcontroller.ui.theme.SurfaceDark
 import com.esp32.robotcontroller.viewmodel.CameraState
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.sp
+
 @Composable
 fun MjpegView(
     frame: Bitmap?,
     cameraState: CameraState,
+    pitch: Float = 0f,
+    roll: Float = 0f,
+    yaw: Float = 0f,
+    isHudVisible: Boolean = true,
+    isDemoMode: Boolean = false,
+    onZeroGyro: () -> Unit = {},
+    onToggleDemo: () -> Unit = {},
+    onToggleHud: () -> Unit = {},
     retryCount: Int = 0,
     errorMessage: String? = null,
     onRetry: (() -> Unit)? = null,
@@ -142,6 +154,37 @@ fun MjpegView(
                         )
                     }
                 }
+            }
+        }
+
+        // Airplane Gyroscope HUD Overlay
+        if (isHudVisible) {
+            GyroHudOverlay(
+                pitch = pitch,
+                roll = roll,
+                yaw = yaw,
+                isDemoMode = isDemoMode,
+                onZeroGyro = onZeroGyro,
+                onToggleDemo = onToggleDemo,
+                onToggleHud = onToggleHud
+            )
+        } else {
+            // Restore HUD button when hidden
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0x88000000))
+                    .clickable { onToggleHud() }
+                    .padding(horizontal = 7.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "HUD",
+                    color = Color(0xFF00E5FF).copy(alpha = 0.7f),
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
     }

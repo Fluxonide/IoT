@@ -12,18 +12,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.esp32.robotcontroller.ui.components.ConnectionDialog
 import com.esp32.robotcontroller.ui.components.ConnectionIndicator
 import com.esp32.robotcontroller.ui.components.DirectionalPad
 import com.esp32.robotcontroller.ui.components.EmergencyStopButton
@@ -43,10 +52,30 @@ fun ControlScreen(viewModel: RobotViewModel) {
     val cameraState by viewModel.cameraState.collectAsState()
     val cameraRetryCount by viewModel.cameraRetryCount.collectAsState()
     val cameraError by viewModel.cameraError.collectAsState()
+    val robotUrl by viewModel.robotUrl.collectAsState()
+    val cameraUrl by viewModel.cameraUrl.collectAsState()
+    val pitch by viewModel.pitch.collectAsState()
+    val roll by viewModel.roll.collectAsState()
+    val yaw by viewModel.yaw.collectAsState()
+    val isHudVisible by viewModel.isHudVisible.collectAsState()
+    val isDemoMode by viewModel.isGyroDemoMode.collectAsState()
+
+    var showConnectionDialog by remember { mutableStateOf(false) }
 
     // Start camera stream when screen is shown
     LaunchedEffect(Unit) {
         viewModel.startCameraStream()
+    }
+
+    if (showConnectionDialog) {
+        ConnectionDialog(
+            currentRobotUrl = robotUrl,
+            currentCameraUrl = cameraUrl,
+            onDismiss = { showConnectionDialog = false },
+            onSave = { newRobotUrl, newCameraUrl ->
+                viewModel.updateConnectionUrls(newRobotUrl, newCameraUrl)
+            }
+        )
     }
 
     Column(
@@ -59,11 +88,14 @@ fun ControlScreen(viewModel: RobotViewModel) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 8.dp),
+                .padding(bottom = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ConnectionIndicator(isConnected = isConnected)
+            ConnectionIndicator(
+                isConnected = isConnected,
+                onClick = { showConnectionDialog = true }
+            )
 
             // Telemetry info
             Row(
@@ -75,10 +107,58 @@ fun ControlScreen(viewModel: RobotViewModel) {
             }
         }
 
-        // === Camera Feed ===
+        // === Connection Custom URL Bar (tap to paste/edit custom URL) ===
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(SurfaceCard.copy(alpha = 0.7f))
+                .clickable { showConnectionDialog = true }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Link,
+                    contentDescription = null,
+                    tint = Primary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = robotUrl,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = "Custom URL",
+                style = MaterialTheme.typography.labelSmall,
+                color = Primary,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // === Camera Feed with Gyro HUD ===
         MjpegView(
             frame = cameraFrame,
             cameraState = cameraState,
+            pitch = pitch,
+            roll = roll,
+            yaw = yaw,
+            isHudVisible = isHudVisible,
+            isDemoMode = isDemoMode,
+            onZeroGyro = { viewModel.zeroGyro() },
+            onToggleDemo = { viewModel.toggleDemoMode() },
+            onToggleHud = { viewModel.toggleHud() },
             retryCount = cameraRetryCount,
             errorMessage = cameraError,
             onRetry = { viewModel.retryCameraStream() },
