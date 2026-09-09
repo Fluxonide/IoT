@@ -83,10 +83,27 @@ class RobotApiService(
             if (response.isSuccessful) {
                 val jsonStr = response.body?.string().orEmpty()
                 val json = JSONObject(jsonStr)
+                val device = json.optString("device", "ESP32 Motor Node")
                 val ip = json.optString("ip", motorBaseUrl.removePrefix("http://").removePrefix("https://").substringBefore("/"))
+                val gateway = json.optString("gateway", "--")
+                val ssid = json.optString("ssid", "--")
                 val rssi = if (json.has("rssi")) "${json.opt("rssi")} dBm" else "--"
-                val channel = if (json.has("channel")) json.optString("channel") else "--"
-                Result.Success(DeviceStatus(isOnline = true, ip = ip, rssi = rssi, channel = channel))
+                val channel = json.optString("channel", "--")
+                val uptime = if (json.has("uptime")) "${json.opt("uptime")} s" else "--"
+                val motorSpeed = json.optString("motorSpeed", "--")
+                Result.Success(
+                    DeviceStatus(
+                        isOnline = true,
+                        device = device,
+                        ip = ip,
+                        gateway = gateway,
+                        ssid = ssid,
+                        rssi = rssi,
+                        channel = channel,
+                        uptime = uptime,
+                        motorSpeed = motorSpeed
+                    )
+                )
             } else {
                 Result.Error("HTTP ${response.code}")
             }
@@ -99,36 +116,35 @@ class RobotApiService(
 
     suspend fun getSensorData(): Result<SensorData> = withContext(Dispatchers.IO) {
         try {
-            val request = Request.Builder()
-                .url("${sensorBaseUrl.trimEnd('/')}/data")
-                .get()
-                .build()
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
+            // First try sensorBaseUrl, if it fails try motorBaseUrl/data (as in esp32-robot-dashboard.html)
+            val primaryUrl = "${sensorBaseUrl.trimEnd('/')}/data"
+            var response: Response? = null
+            try {
+                val request = Request.Builder().url(primaryUrl).get().build()
+                response = client.newCall(request).execute()
+            } catch (_: Exception) {
+                // Try motor url if sensor url is different
+                if (sensorBaseUrl != motorBaseUrl) {
+                    val fallbackUrl = "${motorBaseUrl.trimEnd('/')}/data"
+                    val request = Request.Builder().url(fallbackUrl).get().build()
+                    response = client.newCall(request).execute()
+                }
+            }
+
+            if (response != null && response.isSuccessful) {
                 val jsonStr = response.body?.string().orEmpty()
                 val json = JSONObject(jsonStr)
-
-                val accelObj = json.optJSONObject("accel")
-                val gyroObj = json.optJSONObject("gyro")
 
                 val sensorData = SensorData(
                     distance = json.optDouble("distance", 0.0).toFloat(),
                     temperature = json.optDouble("temperature", 0.0).toFloat(),
                     humidity = json.optDouble("humidity", 0.0).toFloat(),
                     mq = json.optDouble("mq", 0.0).toFloat(),
-                    water = json.optDouble("water", 0.0).toFloat(),
-                    accelMagnitude = json.optDouble("accelMagnitude", 0.0).toFloat(),
-                    gyroMagnitude = json.optDouble("gyroMagnitude", 0.0).toFloat(),
-                    ax = accelObj?.optDouble("x", 0.0)?.toFloat() ?: 0f,
-                    ay = accelObj?.optDouble("y", 0.0)?.toFloat() ?: 0f,
-                    az = accelObj?.optDouble("z", 0.0)?.toFloat() ?: 0f,
-                    gx = gyroObj?.optDouble("x", 0.0)?.toFloat() ?: 0f,
-                    gy = gyroObj?.optDouble("y", 0.0)?.toFloat() ?: 0f,
-                    gz = gyroObj?.optDouble("z", 0.0)?.toFloat() ?: 0f
+                    water = json.optDouble("water", 0.0).toFloat()
                 )
                 Result.Success(sensorData)
             } else {
-                Result.Error("HTTP ${response.code}")
+                Result.Error("HTTP ${response?.code ?: "failed"}")
             }
         } catch (e: Exception) {
             Result.Error(e.message ?: "Sensor error")
@@ -155,6 +171,48 @@ class RobotApiService(
         }
     }
 
+    suspend fun servoLeft(): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("${cameraBaseUrl.trimEnd('/')}/left")
+                .get()
+                .build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) Result.Success(response.body?.string() ?: "OK")
+            else Result.Error("HTTP ${response.code}")
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Servo error")
+        }
+    }
+
+    suspend fun servoCenter(): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("${cameraBaseUrl.trimEnd('/')}/center")
+                .get()
+                .build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) Result.Success(response.body?.string() ?: "OK")
+            else Result.Error("HTTP ${response.code}")
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Servo error")
+        }
+    }
+
+    suspend fun servoRight(): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("${cameraBaseUrl.trimEnd('/')}/right")
+                .get()
+                .build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) Result.Success(response.body?.string() ?: "OK")
+            else Result.Error("HTTP ${response.code}")
+        } catch (e: Exception) {
+            Result.Error(e.message ?: "Servo error")
+        }
+    }
+
     suspend fun getCameraStatus(): Result<DeviceStatus> = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
@@ -165,10 +223,24 @@ class RobotApiService(
             if (response.isSuccessful) {
                 val jsonStr = response.body?.string().orEmpty()
                 val json = JSONObject(jsonStr)
+                val device = json.optString("device", "ESP32 Camera Node")
                 val ip = json.optString("ip", cameraBaseUrl.removePrefix("http://").removePrefix("https://").substringBefore("/"))
+                val gateway = json.optString("gateway", "--")
+                val ssid = json.optString("ssid", "--")
                 val rssi = if (json.has("rssi")) "${json.opt("rssi")} dBm" else "--"
-                val servo = if (json.has("servo")) "${json.opt("servo")}°" else "--"
-                Result.Success(DeviceStatus(isOnline = true, ip = ip, rssi = rssi, servo = servo))
+                val servo = if (json.has("servoAngle")) "${json.opt("servoAngle")}°"
+                    else if (json.has("servo")) "${json.opt("servo")}°" else "--"
+                Result.Success(
+                    DeviceStatus(
+                        isOnline = true,
+                        device = device,
+                        ip = ip,
+                        gateway = gateway,
+                        ssid = ssid,
+                        rssi = rssi,
+                        servo = servo
+                    )
+                )
             } else {
                 Result.Error("HTTP ${response.code}")
             }

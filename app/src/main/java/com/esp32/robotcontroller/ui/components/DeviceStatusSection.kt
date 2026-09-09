@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -20,11 +19,69 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.esp32.robotcontroller.model.DeviceStatus
+import com.esp32.robotcontroller.ui.theme.Amber
+import com.esp32.robotcontroller.ui.theme.BorderLine
+import com.esp32.robotcontroller.ui.theme.BorderLineSoft
+import com.esp32.robotcontroller.ui.theme.Green
+import com.esp32.robotcontroller.ui.theme.GreenDim
+import com.esp32.robotcontroller.ui.theme.PanelDark
+import com.esp32.robotcontroller.ui.theme.Red
+import com.esp32.robotcontroller.ui.theme.RedDim
+import com.esp32.robotcontroller.ui.theme.TextFaint
+import com.esp32.robotcontroller.ui.theme.TextMain
 
+@Composable
+fun DeviceStatusSection(
+    isMotorOnline: Boolean,
+    motorStatus: DeviceStatus,
+    isCameraOnline: Boolean,
+    cameraStatus: DeviceStatus,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Motor node card (Card 05)
+        NodeCard(
+            idx = "05",
+            title = "Motor node",
+            isOnline = isMotorOnline,
+            lines = listOf(
+                "Device" to motorStatus.device,
+                "IP address" to motorStatus.ip,
+                "Gateway" to motorStatus.gateway,
+                "Wi-Fi SSID" to motorStatus.ssid,
+                "RSSI" to motorStatus.rssi,
+                "Channel" to motorStatus.channel,
+                "Uptime" to motorStatus.uptime,
+                "Motor speed" to motorStatus.motorSpeed
+            )
+        )
+
+        // Camera node card (Card 06)
+        NodeCard(
+            idx = "06",
+            title = "Camera node",
+            isOnline = isCameraOnline,
+            lines = listOf(
+                "Device" to cameraStatus.device,
+                "IP address" to cameraStatus.ip,
+                "Gateway" to cameraStatus.gateway,
+                "Wi-Fi SSID" to cameraStatus.ssid,
+                "RSSI" to cameraStatus.rssi,
+                "Servo angle" to cameraStatus.servo
+            )
+        )
+    }
+}
+
+// Backwards compatibility overload
 @Composable
 fun DeviceStatusSection(
     isMotorOnline: Boolean,
@@ -35,54 +92,18 @@ fun DeviceStatusSection(
     cameraStatus: DeviceStatus,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = "Device Status",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-
-        // Motor ESP32 Card
-        DeviceCard(
-            title = "Motor ESP32",
-            isOnline = isMotorOnline,
-            lines = listOf(
-                "IP" to motorStatus.ip,
-                "RSSI" to motorStatus.rssi,
-                "Channel" to motorStatus.channel
-            )
-        )
-
-        // Sensor ESP32 Card
-        DeviceCard(
-            title = "Sensor ESP32",
-            isOnline = isSensorOnline,
-            lines = listOf(
-                "IP" to sensorStatus.ip,
-                "RSSI" to sensorStatus.rssi,
-                "Channel" to sensorStatus.channel
-            )
-        )
-
-        // Camera ESP32 Card
-        DeviceCard(
-            title = "ESP32-CAM",
-            isOnline = isCameraOnline,
-            lines = listOf(
-                "IP" to cameraStatus.ip,
-                "Servo" to cameraStatus.servo,
-                "RSSI" to cameraStatus.rssi
-            )
-        )
-    }
+    DeviceStatusSection(
+        isMotorOnline = isMotorOnline,
+        motorStatus = motorStatus,
+        isCameraOnline = isCameraOnline,
+        cameraStatus = cameraStatus,
+        modifier = modifier
+    )
 }
 
 @Composable
-fun DeviceCard(
+private fun NodeCard(
+    idx: String,
     title: String,
     isOnline: Boolean,
     lines: List<Pair<String, String>>,
@@ -91,57 +112,85 @@ fun DeviceCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF0C141C))
-            .border(1.dp, Color(0xFF263442), RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(3.dp))
+            .border(1.dp, BorderLine, RoundedCornerShape(3.dp))
+            .background(PanelDark)
             .padding(14.dp)
     ) {
-        // Title Row with indicator dot
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Card Head with Pill
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = idx,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Amber
+                )
+                Spacer(modifier = Modifier.padding(horizontal = 4.dp))
+                Text(
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextMain
+                )
+            }
+
+            // Online/Offline Pill matching HTML
             Box(
                 modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(if (isOnline) Color(0xFF55E984) else Color(0xFFFF4D5D))
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = if (isOnline) "ONLINE" else "OFFLINE",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isOnline) Color(0xFF55E984) else Color(0xFFFF4D5D)
-            )
+                    .clip(RoundedCornerShape(20.dp))
+                    .border(
+                        1.dp,
+                        if (isOnline) GreenDim else RedDim,
+                        RoundedCornerShape(20.dp)
+                    )
+                    .background(if (isOnline) Color(0x106FDC8C) else Color(0x10FF6B6B))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = if (isOnline) "online" else "offline",
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isOnline) Green else Red
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Info lines
+        // Info table
         for ((k, v) in lines) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .border(
+                        width = 0.5.dp,
+                        color = BorderLineSoft.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(0.dp)
+                    )
+                    .padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = k,
-                    fontSize = 13.sp,
-                    color = Color(0xFF92A4B5)
+                    fontSize = 12.5.sp,
+                    color = TextFaint
                 )
                 Text(
                     text = v,
-                    fontSize = 13.sp,
+                    fontSize = 12.5.sp,
+                    fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFFE8EEF5)
+                    color = TextMain
                 )
             }
         }
     }
 }
+

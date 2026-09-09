@@ -11,17 +11,24 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.esp32.robotcontroller.model.SensorData
+import com.esp32.robotcontroller.ui.theme.Amber
+import com.esp32.robotcontroller.ui.theme.BorderLine
+import com.esp32.robotcontroller.ui.theme.BorderLineSoft
+import com.esp32.robotcontroller.ui.theme.PanelDark
+import com.esp32.robotcontroller.ui.theme.PanelDark2
+import com.esp32.robotcontroller.ui.theme.TextDim
+import com.esp32.robotcontroller.ui.theme.TextFaint
+import com.esp32.robotcontroller.ui.theme.TextMain
 import java.util.Locale
 
 @Composable
@@ -30,134 +37,164 @@ fun SensorGridView(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(3.dp))
+            .border(1.dp, BorderLine, RoundedCornerShape(3.dp))
+            .background(PanelDark)
+            .padding(14.dp)
     ) {
-        // Section: Live Sensor Data
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF111A23))
-                .border(1.dp, Color(0xFF263442), RoundedCornerShape(14.dp))
-                .padding(14.dp)
+        // Card Head: 04 Live sensor data
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Live Sensor Data",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
+                text = "04",
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+                color = Amber
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Grid of sensor boxes (2 columns on mobile)
-            val row1 = listOf(
-                "Distance" to String.format(Locale.US, "%.1f cm", sensorData.distance),
-                "Temperature" to String.format(Locale.US, "%.1f °C", sensorData.temperature)
+            Spacer(modifier = Modifier.padding(horizontal = 4.dp))
+            Text(
+                text = "Live sensor data",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextMain
             )
-            val row2 = listOf(
-                "Humidity" to String.format(Locale.US, "%.1f %%", sensorData.humidity),
-                "MQ Sensor" to String.format(Locale.US, "%.0f", sensorData.mq)
-            )
-            val row3 = listOf(
-                "Water" to String.format(Locale.US, "%.0f", sensorData.water),
-                "Accel Mag" to String.format(Locale.US, "%.2f", sensorData.accelMagnitude)
-            )
-
-            SensorRow(row1)
-            Spacer(modifier = Modifier.height(8.dp))
-            SensorRow(row2)
-            Spacer(modifier = Modifier.height(8.dp))
-            SensorRow(row3)
-            Spacer(modifier = Modifier.height(8.dp))
-            SensorRow(listOf(
-                "Gyro Mag" to String.format(Locale.US, "%.2f", sensorData.gyroMagnitude),
-                "Timestamp" to "${(sensorData.timestamp % 100000) / 1000}s"
-            ))
         }
 
-        // Section: MPU6050 Raw Values
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF111A23))
-                .border(1.dp, Color(0xFF263442), RoundedCornerShape(14.dp))
-                .padding(14.dp)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Row 1: DISTANCE & TEMPERATURE
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = "MPU6050 Raw Data",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
+            SensorBox(
+                name = "DISTANCE",
+                value = String.format(Locale.US, "%.1f", sensorData.distance),
+                unit = "cm",
+                modifier = Modifier.weight(1f)
             )
+            SensorBox(
+                name = "TEMPERATURE",
+                value = String.format(Locale.US, "%.1f", sensorData.temperature),
+                unit = "°C",
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-            Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-            // Accel X, Y, Z
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // Row 2: HUMIDITY & MQ SENSOR
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SensorBox(
+                name = "HUMIDITY",
+                value = String.format(Locale.US, "%.1f", sensorData.humidity),
+                unit = "%",
+                modifier = Modifier.weight(1f)
+            )
+            SensorBox(
+                name = "MQ SENSOR",
+                value = String.format(Locale.US, "%.0f", sensorData.mq),
+                unit = null,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Row 3: WATER
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SensorBox(
+                name = "WATER",
+                value = String.format(Locale.US, "%.0f", sensorData.water),
+                unit = null,
+                modifier = Modifier.weight(1f)
+            )
+            // Empty spacer for 2-column symmetry or secondary info
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(3.dp))
+                    .border(1.dp, BorderLineSoft, RoundedCornerShape(3.dp))
+                    .background(PanelDark2)
+                    .padding(vertical = 12.dp, horizontal = 10.dp),
+                contentAlignment = Alignment.Center
             ) {
-                SensorBox(label = "Accel X", value = String.format(Locale.US, "%.2f", sensorData.ax), modifier = Modifier.weight(1f))
-                SensorBox(label = "Accel Y", value = String.format(Locale.US, "%.2f", sensorData.ay), modifier = Modifier.weight(1f))
-                SensorBox(label = "Accel Z", value = String.format(Locale.US, "%.2f", sensorData.az), modifier = Modifier.weight(1f))
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Gyro X, Y, Z
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                SensorBox(label = "Gyro X", value = String.format(Locale.US, "%.2f", sensorData.gx), modifier = Modifier.weight(1f))
-                SensorBox(label = "Gyro Y", value = String.format(Locale.US, "%.2f", sensorData.gy), modifier = Modifier.weight(1f))
-                SensorBox(label = "Gyro Z", value = String.format(Locale.US, "%.2f", sensorData.gz), modifier = Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "LAST UPDATE",
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = TextFaint,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "${(sensorData.timestamp % 100000) / 1000}s",
+                        fontSize = 18.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDim
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SensorRow(items: List<Pair<String, String>>) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        for ((label, value) in items) {
-            SensorBox(label = label, value = value, modifier = Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-fun SensorBox(
-    label: String,
+private fun SensorBox(
+    name: String,
     value: String,
+    unit: String?,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF0C141C))
-            .border(1.dp, Color(0xFF263442), RoundedCornerShape(10.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(3.dp))
+            .border(1.dp, BorderLineSoft, RoundedCornerShape(3.dp))
+            .background(PanelDark2)
+            .padding(vertical = 12.dp, horizontal = 10.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = label,
-                fontSize = 11.sp,
-                color = Color(0xFF8497AA)
+                text = name,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                color = TextFaint,
+                letterSpacing = 0.5.sp
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = value,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = value,
+                    fontSize = 20.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = TextMain
+                )
+                if (unit != null) {
+                    Spacer(modifier = Modifier.padding(horizontal = 2.dp))
+                    Text(
+                        text = unit,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = TextFaint
+                    )
+                }
+            }
         }
     }
 }
+

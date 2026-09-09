@@ -101,8 +101,8 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     private val _sensorData = MutableStateFlow(SensorData())
     val sensorData: StateFlow<SensorData> = _sensorData.asStateFlow()
 
-    // Historical Sensor Graphs (capped at 100 points)
-    private val maxPoints = 100
+    // Historical Sensor Graphs (capped at 60 points, matching esp32-robot-dashboard.html)
+    private val maxPoints = 60
     private val _distanceHistory = MutableStateFlow<List<Float>>(emptyList())
     val distanceHistory: StateFlow<List<Float>> = _distanceHistory.asStateFlow()
 
@@ -118,52 +118,7 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     private val _waterHistory = MutableStateFlow<List<Float>>(emptyList())
     val waterHistory: StateFlow<List<Float>> = _waterHistory.asStateFlow()
 
-    private val _axHistory = MutableStateFlow<List<Float>>(emptyList())
-    val axHistory: StateFlow<List<Float>> = _axHistory.asStateFlow()
-
-    private val _ayHistory = MutableStateFlow<List<Float>>(emptyList())
-    val ayHistory: StateFlow<List<Float>> = _ayHistory.asStateFlow()
-
-    private val _azHistory = MutableStateFlow<List<Float>>(emptyList())
-    val azHistory: StateFlow<List<Float>> = _azHistory.asStateFlow()
-
-    private val _gxHistory = MutableStateFlow<List<Float>>(emptyList())
-    val gxHistory: StateFlow<List<Float>> = _gxHistory.asStateFlow()
-
-    private val _gyHistory = MutableStateFlow<List<Float>>(emptyList())
-    val gyHistory: StateFlow<List<Float>> = _gyHistory.asStateFlow()
-
-    private val _gzHistory = MutableStateFlow<List<Float>>(emptyList())
-    val gzHistory: StateFlow<List<Float>> = _gzHistory.asStateFlow()
-
-    // Gyroscope Telemetry State (Pitch, Roll, Yaw)
-    private val _pitch = MutableStateFlow(0f)
-    val pitch: StateFlow<Float> = _pitch.asStateFlow()
-
-    private val _roll = MutableStateFlow(0f)
-    val roll: StateFlow<Float> = _roll.asStateFlow()
-
-    private val _yaw = MutableStateFlow(0f)
-    val yaw: StateFlow<Float> = _yaw.asStateFlow()
-
-    private val _isHudVisible = MutableStateFlow(true)
-    val isHudVisible: StateFlow<Boolean> = _isHudVisible.asStateFlow()
-
-    private val _isGyroDemoMode = MutableStateFlow(false)
-    val isGyroDemoMode: StateFlow<Boolean> = _isGyroDemoMode.asStateFlow()
-
-    private var computedRoll = 0f
-    private var computedPitch = 0f
-    private var previousAttitudeTime = System.currentTimeMillis()
-
-    private var rawPitch = 0f
-    private var rawRoll = 0f
-    private var rawYaw = 0f
-    private var pitchOffset = 0f
-    private var rollOffset = 0f
-    private var demoJob: Job? = null
-
-    // Motor Speed (default 180 as in test2.html)
+    // Motor Speed (default 180 as in HTML)
     private val _currentSpeed = MutableStateFlow(180)
     val currentSpeed: StateFlow<Int> = _currentSpeed.asStateFlow()
 
@@ -248,7 +203,7 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /* ================= 200ms Sensor Polling ================= */
+    /* ================= Sensor Polling (1000ms, matching HTML) ================= */
 
     private fun startSensorPolling() {
         sensorPollJob?.cancel()
@@ -267,21 +222,12 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
                         _humidityHistory.value = pushHistory(_humidityHistory.value, data.humidity)
                         _mqHistory.value = pushHistory(_mqHistory.value, data.mq)
                         _waterHistory.value = pushHistory(_waterHistory.value, data.water)
-                        _axHistory.value = pushHistory(_axHistory.value, data.ax)
-                        _ayHistory.value = pushHistory(_ayHistory.value, data.ay)
-                        _azHistory.value = pushHistory(_azHistory.value, data.az)
-                        _gxHistory.value = pushHistory(_gxHistory.value, data.gx)
-                        _gyHistory.value = pushHistory(_gyHistory.value, data.gy)
-                        _gzHistory.value = pushHistory(_gzHistory.value, data.gz)
-
-                        // Update Aircraft Attitude using complementary filter (from test2.html)
-                        updateAttitudeFromSensor(data.ax, data.ay, data.az, data.gx, data.gy)
                     }
                     is RobotApiService.Result.Error -> {
                         _isSensorOnline.value = false
                     }
                 }
-                delay(200) // 5 updates per second
+                delay(1000) // 1s interval as in esp32-robot-dashboard.html
             }
         }
     }
@@ -332,31 +278,6 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /* ================= Complementary Filter for Aircraft ================= */
-
-    private fun updateAttitudeFromSensor(ax: Float, ay: Float, az: Float, gx: Float, gy: Float) {
-        if (_isGyroDemoMode.value) return
-
-        val now = System.currentTimeMillis()
-        var dt = (now - previousAttitudeTime) / 1000f
-        previousAttitudeTime = now
-        if (dt <= 0f || dt > 1f) dt = 0.02f
-
-        val accelRoll = Math.toDegrees(atan2(ay.toDouble(), az.toDouble())).toFloat()
-        val accelPitch = Math.toDegrees(atan2(-ax.toDouble(), sqrt((ay * ay + az * az).toDouble()))).toFloat()
-
-        val gyroRoll = computedRoll + gx * dt
-        val gyroPitch = computedPitch + gy * dt
-
-        val alpha = 0.96f
-        computedRoll = (alpha * gyroRoll + (1f - alpha) * accelRoll).coerceIn(-90f, 90f)
-        computedPitch = (alpha * gyroPitch + (1f - alpha) * accelPitch).coerceIn(-90f, 90f)
-
-        rawRoll = computedRoll
-        rawPitch = computedPitch
-        updateCalibratedValues()
-    }
-
     /* ================= Motor & Direction Controls ================= */
 
     fun sendDirection(direction: String) {
@@ -398,6 +319,27 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         val clamped = angle.coerceIn(20, 160)
         _servoAngle.value = clamped
         servoFlow.tryEmit(clamped)
+    }
+
+    fun servoLeft() {
+        _servoAngle.value = 20
+        viewModelScope.launch(Dispatchers.IO) {
+            apiService.servoLeft()
+        }
+    }
+
+    fun servoCenter() {
+        _servoAngle.value = 90
+        viewModelScope.launch(Dispatchers.IO) {
+            apiService.servoCenter()
+        }
+    }
+
+    fun servoRight() {
+        _servoAngle.value = 160
+        viewModelScope.launch(Dispatchers.IO) {
+            apiService.servoRight()
+        }
     }
 
     /* ================= Camera Stream ================= */

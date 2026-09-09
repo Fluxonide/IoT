@@ -3,6 +3,7 @@ package com.esp32.robotcontroller.ui.components
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,30 +24,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.esp32.robotcontroller.ui.theme.Primary
-import com.esp32.robotcontroller.ui.theme.SurfaceDark
-import com.esp32.robotcontroller.viewmodel.CameraState
-
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
+import com.esp32.robotcontroller.ui.theme.Amber
+import com.esp32.robotcontroller.ui.theme.BorderLineSoft
+import com.esp32.robotcontroller.ui.theme.Red
+import com.esp32.robotcontroller.viewmodel.CameraState
 
 @Composable
 fun MjpegView(
     frame: Bitmap?,
     cameraState: CameraState,
-    pitch: Float = 0f,
-    roll: Float = 0f,
-    yaw: Float = 0f,
-    isHudVisible: Boolean = true,
-    isDemoMode: Boolean = false,
-    onZeroGyro: () -> Unit = {},
-    onToggleDemo: () -> Unit = {},
-    onToggleHud: () -> Unit = {},
     retryCount: Int = 0,
     errorMessage: String? = null,
     onRetry: (() -> Unit)? = null,
@@ -54,12 +47,12 @@ fun MjpegView(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceDark),
+            .clip(RoundedCornerShape(4.dp))
+            .border(1.dp, BorderLineSoft, RoundedCornerShape(4.dp))
+            .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
         if (frame != null && cameraState == CameraState.STREAMING) {
-            // We have a frame and we're streaming — show it
             Image(
                 bitmap = frame.asImageBitmap(),
                 contentDescription = "Live Camera Feed",
@@ -67,7 +60,6 @@ fun MjpegView(
                 contentScale = ContentScale.Fit
             )
         } else {
-            // No frame or not streaming — show status
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -79,33 +71,32 @@ fun MjpegView(
                             verticalArrangement = Arrangement.Center
                         ) {
                             CircularProgressIndicator(
-                                color = Primary,
-                                modifier = Modifier.size(40.dp)
+                                color = Amber,
+                                modifier = Modifier.size(36.dp)
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
                             Text(
                                 text = "Connecting to camera…",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color(0xFF9A9D97)
                             )
                         }
                     }
 
                     CameraState.STREAMING -> {
-                        // Streaming but no frame decoded yet
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
                             CircularProgressIndicator(
-                                color = Primary,
-                                modifier = Modifier.size(40.dp)
+                                color = Amber,
+                                modifier = Modifier.size(36.dp)
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
                             Text(
                                 text = "Receiving stream…",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color(0xFF9A9D97)
                             )
                         }
                     }
@@ -115,7 +106,7 @@ fun MjpegView(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
                             modifier = Modifier
-                                .padding(24.dp)
+                                .padding(16.dp)
                                 .then(
                                     if (onRetry != null) Modifier.clickable { onRetry() }
                                     else Modifier
@@ -124,21 +115,21 @@ fun MjpegView(
                             Icon(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = "Warning",
-                                tint = Color(0xFFFF6875),
-                                modifier = Modifier.size(42.dp)
+                                tint = Red,
+                                modifier = Modifier.size(36.dp)
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = "Camera connection failed",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color(0xFFE7E4D9)
                             )
                             if (errorMessage != null) {
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = errorMessage,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    color = Color(0xFF9A9D97),
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -146,7 +137,7 @@ fun MjpegView(
                             Text(
                                 text = "Retry #$retryCount — tap to reconnect",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Primary
+                                color = Amber
                             )
                         }
                     }
@@ -155,42 +146,30 @@ fun MjpegView(
                         Text(
                             text = "Camera Offline",
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFF9A9D97)
                         )
                     }
                 }
             }
         }
 
-        // Airplane Gyroscope HUD Overlay
-        if (isHudVisible) {
-            GyroHudOverlay(
-                pitch = pitch,
-                roll = roll,
-                yaw = yaw,
-                isDemoMode = isDemoMode,
-                onZeroGyro = onZeroGyro,
-                onToggleDemo = onToggleDemo,
-                onToggleHud = onToggleHud
+        // Camera Frame Tag (LIVE · CAM-ESP badge matching HTML)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(8.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color(0x99000000))
+                .padding(horizontal = 7.dp, vertical = 3.dp)
+        ) {
+            Text(
+                text = if (cameraState == CameraState.STREAMING) "LIVE · CAM-ESP" else "OFFLINE · CAM-ESP",
+                color = if (cameraState == CameraState.STREAMING) Amber else Color(0xFF9A9D97),
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 0.5.sp
             )
-        } else {
-            // Restore HUD button when hidden
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0x88000000))
-                    .clickable { onToggleHud() }
-                    .padding(horizontal = 7.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = "HUD",
-                    color = Color(0xFF00E5FF).copy(alpha = 0.7f),
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
         }
     }
 }
+

@@ -2,28 +2,46 @@ package com.esp32.robotcontroller.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary palette - Cyan/Teal
-val Primary = Color(0xFF00BCD4)
-val PrimaryDark = Color(0xFF0097A7)
-val PrimaryLight = Color(0xFF4DD0E1)
+// ============================================================
+// Field-Console Palette (from esp32-robot-dashboard (1).html)
+// ============================================================
+val BgDark = Color(0xFF0B0D0E)
+val BgRaised = Color(0xFF131618)
+val PanelDark = Color(0xFF15181A)
+val PanelDark2 = Color(0xFF1A1E20)
+val BorderLine = Color(0xFF262B2E)
+val BorderLineSoft = Color(0xFF1E2224)
 
-// Surface colors
-val SurfaceDark = Color(0xFF0F1923)
-val SurfaceVariant = Color(0xFF1A2733)
-val SurfaceCard = Color(0xFF1E2D3D)
+val TextMain = Color(0xFFE7E4D9)
+val TextDim = Color(0xFF9A9D97)
+val TextFaint = Color(0xFF5F6461)
 
-// Accent colors
-val AccentGreen = Color(0xFF00E676)
-val AccentRed = Color(0xFFFF1744)
-val AccentOrange = Color(0xFFFF9100)
+val Amber = Color(0xFFFFB454)
+val AmberDim = Color(0xFF7A5A2E)
+val Green = Color(0xFF6FDC8C)
+val GreenDim = Color(0xFF234A30)
+val Red = Color(0xFFFF6B6B)
+val RedDim = Color(0xFF4A2323)
+val Cyan = Color(0xFF5FD0E0)
+val Purple = Color(0xFFC792EA)
 
-// D-pad control colors
-val DpadButton = Color(0xFF2A3F52)
-val DpadButtonPressed = Color(0xFF00BCD4)
+// Compatibility aliases
+val Primary = Amber
+val PrimaryDark = AmberDim
+val PrimaryLight = Color(0xFFFFC77D)
 
-// Status colors
-val StatusConnected = Color(0xFF00E676)
-val StatusDisconnected = Color(0xFFFF1744)
+val SurfaceDark = BgDark
+val SurfaceVariant = PanelDark
+val SurfaceCard = PanelDark2
 
-// Emergency
-val EmergencyRed = Color(0xFFD50000)
+val AccentGreen = Green
+val AccentRed = Red
+val AccentOrange = Amber
+
+val DpadButton = PanelDark2
+val DpadButtonPressed = Color(0xFF21262A)
+
+val StatusConnected = Green
+val StatusDisconnected = Red
+val EmergencyRed = Red
+

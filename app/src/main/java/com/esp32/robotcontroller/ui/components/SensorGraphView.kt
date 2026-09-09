@@ -27,10 +27,17 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.esp32.robotcontroller.ui.theme.BorderLine
+import com.esp32.robotcontroller.ui.theme.BorderLineSoft
+import com.esp32.robotcontroller.ui.theme.PanelDark
+import com.esp32.robotcontroller.ui.theme.PanelDark2
+import com.esp32.robotcontroller.ui.theme.TextDim
+import com.esp32.robotcontroller.ui.theme.TextFaint
+import com.esp32.robotcontroller.ui.theme.TextMain
 import java.util.Locale
 
 data class GraphDataset(
@@ -50,9 +57,9 @@ fun SensorGraphCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF111A23))
-            .border(1.dp, Color(0xFF263442), RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(3.dp))
+            .border(1.dp, BorderLine, RoundedCornerShape(3.dp))
+            .background(PanelDark)
             .padding(14.dp)
     ) {
         Row(
@@ -62,9 +69,9 @@ fun SensorGraphCard(
         ) {
             Text(
                 text = title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextMain
             )
 
             // Legend
@@ -83,8 +90,9 @@ fun SensorGraphCard(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = ds.name,
-                            fontSize = 11.sp,
-                            color = Color(0xFFAEBDCC)
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = TextDim
                         )
                     }
                 }
@@ -96,9 +104,9 @@ fun SensorGraphCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF080E14))
+                .height(160.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(PanelDark2)
                 .padding(6.dp)
         ) {
             SensorGraphCanvas(
@@ -120,8 +128,8 @@ private fun SensorGraphCanvas(
 ) {
     val textPaint = remember {
         Paint().apply {
-            color = android.graphics.Color.parseColor("#718294")
-            textSize = 24f
+            color = android.graphics.Color.parseColor("#9A9D97")
+            textSize = 22f
             isAntiAlias = true
             textAlign = Paint.Align.RIGHT
         }
@@ -131,10 +139,10 @@ private fun SensorGraphCanvas(
         val w = size.width
         val h = size.height
 
-        val leftMargin = 75f
-        val rightMargin = 20f
-        val topMargin = 25f
-        val bottomMargin = 40f
+        val leftMargin = 70f
+        val rightMargin = 16f
+        val topMargin = 20f
+        val bottomMargin = 32f
 
         val graphW = w - leftMargin - rightMargin
         val graphH = h - topMargin - bottomMargin
@@ -157,39 +165,39 @@ private fun SensorGraphCanvas(
 
         val range = (max - min).coerceAtLeast(0.001f)
 
-        // Draw 5 grid lines with values
-        val gridLines = 5
+        // Draw 4 grid lines with values
+        val gridLines = 4
         for (i in 0..gridLines) {
             val y = topMargin + (graphH * i / gridLines)
 
             // Horizontal line
             drawLine(
-                color = Color(0xFF263442),
+                color = BorderLineSoft,
                 start = Offset(leftMargin, y),
                 end = Offset(leftMargin + graphW, y),
-                strokeWidth = 1.5f
+                strokeWidth = 1f
             )
 
             val value = max - ((max - min) * i / gridLines)
             val label = String.format(Locale.US, "%.1f", value)
             drawContext.canvas.nativeCanvas.drawText(
                 label,
-                leftMargin - 10f,
-                y + 8f,
+                leftMargin - 8f,
+                y + 7f,
                 textPaint
             )
         }
 
         // X-axis base line
         drawLine(
-            color = Color(0xFF536577),
+            color = BorderLine,
             start = Offset(leftMargin, topMargin + graphH),
             end = Offset(leftMargin + graphW, topMargin + graphH),
-            strokeWidth = 2f
+            strokeWidth = 1.5f
         )
 
-        // Draw dataset lines
-        val maxPoints = 100
+        // Draw dataset lines (maxPoints = 60, matching HTML MAX_POINTS)
+        val maxPoints = 60
         for (ds in datasets) {
             val data = ds.data
             if (data.size < 2) continue
@@ -211,8 +219,9 @@ private fun SensorGraphCanvas(
             drawPath(
                 path = path,
                 color = ds.color,
-                style = Stroke(width = 3.5f, cap = StrokeCap.Round)
+                style = Stroke(width = 2.5f, cap = StrokeCap.Round)
             )
         }
     }
 }
+
