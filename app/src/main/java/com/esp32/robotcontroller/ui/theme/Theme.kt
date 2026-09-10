@@ -1,25 +1,59 @@
 package com.esp32.robotcontroller.ui.theme
 
+import android.app.Activity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Primary,
-    onPrimary = SurfaceDark,
-    secondary = PrimaryLight,
-    tertiary = AccentGreen,
-    background = SurfaceDark,
-    surface = SurfaceVariant,
-    surfaceVariant = SurfaceCard,
-    error = AccentRed,
-    onBackground = androidx.compose.ui.graphics.Color(0xFFE0E0E0),
-    onSurface = androidx.compose.ui.graphics.Color(0xFFE0E0E0),
-    onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFF9E9E9E)
+    primary = Amber,
+    onPrimary = Color(0xFF422B00),
+    primaryContainer = AmberDim,
+    onPrimaryContainer = Color(0xFFFFDDB8),
+    inversePrimary = Color(0xFF825500),
+    secondary = Cyan,
+    onSecondary = Color(0xFF00363D),
+    secondaryContainer = Color(0xFF004F58),
+    onSecondaryContainer = Color(0xFF97F0FF),
+    tertiary = Green,
+    onTertiary = Color(0xFF003919),
+    tertiaryContainer = GreenDim,
+    onTertiaryContainer = Color(0xFF8CFDB2),
+    error = Red,
+    onError = Color(0xFF690005),
+    errorContainer = RedDim,
+    onErrorContainer = Color(0xFFFFDAD6),
+    background = BgDark,
+    onBackground = TextMain,
+    surface = BgDark,
+    onSurface = TextMain,
+    surfaceVariant = PanelDark,
+    onSurfaceVariant = TextDim,
+    surfaceContainer = PanelDark,
+    surfaceContainerLow = BgRaised,
+    surfaceContainerHigh = PanelDark2,
+    outline = BorderLine,
+    outlineVariant = BorderLineSoft
 )
 
 @Composable
 fun ESP32RobotControllerTheme(content: @Composable () -> Unit) {
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                val insetsController = WindowCompat.getInsetsController(window, view)
+                insetsController.isAppearanceLightStatusBars = false
+                insetsController.isAppearanceLightNavigationBars = false
+            }
+        }
+    }
+
     MaterialTheme(
         colorScheme = DarkColorScheme,
         typography = AppTypography,
