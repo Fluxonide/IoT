@@ -1,0 +1,8 @@
+
+==============================
+ESP32-CAM READY
+==============================
+Web page:       http://172.17.40.60
+Status:         http://172.17.40.60/status
+WebSocket:      ws://172.17.40.60:81
+Camera stream:  http://172.17.40.60:82/stream
