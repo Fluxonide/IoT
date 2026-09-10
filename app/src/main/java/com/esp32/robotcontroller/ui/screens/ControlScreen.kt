@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import android.content.res.Configuration
@@ -139,7 +140,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgDark)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // ============================================================
         // HEADER — RVR-01 FIELD TELEMETRY CONSOLE
@@ -147,10 +148,10 @@ fun ControlScreen(viewModel: RobotViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(BgRaised)
-                .border(width = 0.5.dp, color = BorderLine)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .border(width = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
         ) {
-            // Status bar spacer so the top bar color (BgRaised) extends seamlessly behind Android status bar
+            // Status bar spacer so the top bar color extends seamlessly behind Android status bar
             Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
 
             Row(
@@ -167,14 +168,14 @@ fun ControlScreen(viewModel: RobotViewModel) {
                         fontSize = 18.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        color = TextMain
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "-01",
                         fontSize = 18.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        color = Amber
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 Text(
@@ -182,7 +183,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
                     letterSpacing = 0.6.sp,
-                    color = TextFaint
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
 
@@ -191,8 +192,8 @@ fun ControlScreen(viewModel: RobotViewModel) {
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
-                        .border(1.dp, BorderLine, RoundedCornerShape(20.dp))
-                        .background(PanelDark)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
                         .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -208,7 +209,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Medium,
-                            color = TextDim
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -222,7 +223,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = "Settings",
-                        tint = Amber,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -235,12 +236,12 @@ fun ControlScreen(viewModel: RobotViewModel) {
         // ============================================================
         TabRow(
             selectedTabIndex = selectedTabIndex,
-            containerColor = BgRaised,
-            contentColor = Amber,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.primary,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
                     Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                    color = Amber,
+                    color = MaterialTheme.colorScheme.primary,
                     height = 2.dp
                 )
             }
@@ -256,7 +257,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedTabIndex == index) Amber else TextDim
+                            color = if (selectedTabIndex == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 )
@@ -388,8 +389,8 @@ private fun OptimizedCockpitTab(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(4.dp))
-                .border(1.dp, BorderLine, RoundedCornerShape(4.dp))
-                .background(PanelDark)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
                 .padding(cardPadding)
         ) {
             // Header: 01 Optical feed
@@ -404,14 +405,14 @@ private fun OptimizedCockpitTab(
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.SemiBold,
-                        color = Amber
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = "Optical feed",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextMain
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -460,14 +461,14 @@ private fun OptimizedCockpitTab(
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.SemiBold,
-                        color = Amber
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = "Camera servo",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextMain
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Text(
@@ -475,7 +476,7 @@ private fun OptimizedCockpitTab(
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
-                    color = Amber
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -518,9 +519,9 @@ private fun OptimizedCockpitTab(
                     .fillMaxWidth()
                     .height(24.dp),
                 colors = SliderDefaults.colors(
-                    thumbColor = Amber,
-                    activeTrackColor = Amber,
-                    inactiveTrackColor = BorderLineSoft
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
                 )
             )
         }
@@ -532,8 +533,8 @@ private fun OptimizedCockpitTab(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(4.dp))
-                .border(1.dp, BorderLine, RoundedCornerShape(4.dp))
-                .background(PanelDark)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
                 .padding(cardPadding)
         ) {
             Row(
@@ -547,14 +548,14 @@ private fun OptimizedCockpitTab(
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.SemiBold,
-                        color = Amber
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = "Live sensors",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextMain
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -563,7 +564,7 @@ private fun OptimizedCockpitTab(
                     fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace,
                     letterSpacing = 0.5.sp,
-                    color = TextFaint
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
 
@@ -576,9 +577,9 @@ private fun OptimizedCockpitTab(
             ) {
                 val distVal = sensorData.distance
                 val distColor = when {
-                    distVal in 0.1f..15f -> Red
-                    distVal in 15f..30f -> Amber
-                    else -> TextMain
+                    distVal in 0.1f..15f -> MaterialTheme.colorScheme.error
+                    distVal in 15f..30f -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurface
                 }
 
                 MiniSensorBox(
@@ -593,7 +594,7 @@ private fun OptimizedCockpitTab(
                     label = "TEMP",
                     value = String.format(Locale.US, "%.1f", sensorData.temperature),
                     unit = "°C",
-                    valueColor = TextMain,
+                    valueColor = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
 
@@ -601,7 +602,7 @@ private fun OptimizedCockpitTab(
                     label = "HUM",
                     value = String.format(Locale.US, "%.0f", sensorData.humidity),
                     unit = "%",
-                    valueColor = TextMain,
+                    valueColor = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
 
@@ -609,7 +610,7 @@ private fun OptimizedCockpitTab(
                     label = "MQ",
                     value = String.format(Locale.US, "%.0f", sensorData.mq),
                     unit = null,
-                    valueColor = TextMain,
+                    valueColor = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
 
@@ -617,7 +618,7 @@ private fun OptimizedCockpitTab(
                     label = "WATER",
                     value = String.format(Locale.US, "%.0f", sensorData.water),
                     unit = null,
-                    valueColor = TextMain,
+                    valueColor = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -632,8 +633,8 @@ private fun OptimizedCockpitTab(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(4.dp))
-                .border(1.dp, BorderLine, RoundedCornerShape(4.dp))
-                .background(PanelDark)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
                 .padding(cardPadding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -649,14 +650,14 @@ private fun OptimizedCockpitTab(
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.SemiBold,
-                        color = Amber
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
                         text = "Movement & Speed",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextMain
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
 
@@ -684,8 +685,8 @@ private fun OptimizedCockpitTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(4.dp))
-                    .background(PanelDark2)
-                    .border(0.5.dp, BorderLineSoft, RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
                     .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
                 Row(
@@ -698,7 +699,7 @@ private fun OptimizedCockpitTab(
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextDim,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         letterSpacing = 0.5.sp
                     )
 
@@ -708,13 +709,13 @@ private fun OptimizedCockpitTab(
                             fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
-                            color = Amber
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Text(
                             text = " / 255",
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace,
-                            color = TextFaint
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -772,9 +773,9 @@ private fun OptimizedCockpitTab(
                         .fillMaxWidth()
                         .height(24.dp),
                     colors = SliderDefaults.colors(
-                        thumbColor = Amber,
-                        activeTrackColor = Amber,
-                        inactiveTrackColor = BorderLineSoft
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
                     )
                 )
             }
@@ -795,7 +796,7 @@ private fun OptimizedCockpitTab(
                 text = "Hold button to move · Release to stop · Center STOP to brake",
                 fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace,
-                color = TextFaint
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
 
@@ -812,8 +813,8 @@ private fun QuickStepButton(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(3.dp))
-            .border(1.dp, BorderLineSoft, RoundedCornerShape(3.dp))
-            .background(PanelDark)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable { onClick() }
             .padding(vertical = 5.dp),
         contentAlignment = Alignment.Center
@@ -823,7 +824,7 @@ private fun QuickStepButton(
             fontSize = 10.sp,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
-            color = Amber
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }
@@ -835,9 +836,9 @@ private fun QuickActionChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bg = if (isSelected) Amber.copy(alpha = 0.15f) else PanelDark
-    val border = if (isSelected) Amber else BorderLine
-    val textC = if (isSelected) Amber else TextMain
+    val bg = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceContainerHigh
+    val border = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val textC = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
 
     Box(
         modifier = modifier
@@ -863,14 +864,14 @@ private fun MiniSensorBox(
     label: String,
     value: String,
     unit: String?,
-    valueColor: Color = TextMain,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(3.dp))
-            .border(0.5.dp, BorderLineSoft, RoundedCornerShape(3.dp))
-            .background(PanelDark2)
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .padding(horizontal = 4.dp, vertical = 5.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -879,7 +880,7 @@ private fun MiniSensorBox(
                 text = label,
                 fontSize = 8.sp,
                 fontFamily = FontFamily.Monospace,
-                color = TextFaint,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 letterSpacing = 0.3.sp
             )
             Spacer(modifier = Modifier.height(2.dp))
@@ -897,7 +898,7 @@ private fun MiniSensorBox(
                         text = unit,
                         fontSize = 8.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = TextFaint
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -936,14 +937,14 @@ private fun TelemetryTab(
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 0.6.sp,
-            color = TextFaint,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier.padding(top = 8.dp, start = 4.dp)
         )
 
         // 1. Distance Graph
         SensorGraphCard(
             title = "Ultrasonic distance",
-            datasets = listOf(GraphDataset("Distance (cm)", distanceHistory, Amber)),
+            datasets = listOf(GraphDataset("Distance (cm)", distanceHistory, MaterialTheme.colorScheme.primary)),
             minVal = 0f
         )
 
@@ -1015,8 +1016,8 @@ private fun NodesTab(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(3.dp))
-                .border(1.dp, BorderLine, RoundedCornerShape(3.dp))
-                .background(PanelDark)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
                 .padding(14.dp)
         ) {
             Row(
@@ -1028,7 +1029,7 @@ private fun NodesTab(
                     text = "Configured Endpoints",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextMain
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Text(
@@ -1036,7 +1037,7 @@ private fun NodesTab(
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
-                    color = Amber,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.clickable { onOpenSettings() }
                 )
             }
@@ -1058,18 +1059,18 @@ private fun UrlInfoLine(label: String, url: String) {
             .fillMaxWidth()
             .border(
                 width = 0.5.dp,
-                color = BorderLineSoft.copy(alpha = 0.5f),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(0.dp)
             )
             .padding(vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = label, fontSize = 12.sp, color = TextFaint)
+        Text(text = label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
         Text(
             text = url,
             fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
-            color = TextMain,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Medium
         )
     }

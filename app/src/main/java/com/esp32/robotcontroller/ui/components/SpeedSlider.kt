@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -23,13 +24,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.esp32.robotcontroller.ui.theme.Amber
-import com.esp32.robotcontroller.ui.theme.BorderLine
-import com.esp32.robotcontroller.ui.theme.BorderLineSoft
-import com.esp32.robotcontroller.ui.theme.PanelDark
-import com.esp32.robotcontroller.ui.theme.PanelDark2
-import com.esp32.robotcontroller.ui.theme.TextDim
-import com.esp32.robotcontroller.ui.theme.TextMain
 
 @Composable
 fun SpeedSlider(
@@ -41,8 +35,8 @@ fun SpeedSlider(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(4.dp))
-            .border(1.dp, BorderLine, RoundedCornerShape(4.dp))
-            .background(PanelDark)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Column {
@@ -56,7 +50,7 @@ fun SpeedSlider(
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextDim,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 0.5.sp
                 )
                 Text(
@@ -64,7 +58,7 @@ fun SpeedSlider(
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
-                    color = Amber
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -105,9 +99,9 @@ fun SpeedSlider(
                     .fillMaxWidth()
                     .height(28.dp),
                 colors = SliderDefaults.colors(
-                    thumbColor = Amber,
-                    activeTrackColor = Amber,
-                    inactiveTrackColor = BorderLineSoft
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
                 )
             )
         }
@@ -121,9 +115,9 @@ private fun SpeedPresetChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bg = if (isSelected) Amber.copy(alpha = 0.15f) else PanelDark2
-    val border = if (isSelected) Amber else BorderLine
-    val textColor = if (isSelected) Amber else TextMain
+    val bg = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceContainerHigh
+    val border = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val textColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
 
     Box(
         modifier = modifier

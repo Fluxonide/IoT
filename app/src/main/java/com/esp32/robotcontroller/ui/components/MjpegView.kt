@@ -48,7 +48,7 @@ fun MjpegView(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(4.dp))
-            .border(1.dp, BorderLineSoft, RoundedCornerShape(4.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
             .background(Color.Black),
         contentAlignment = Alignment.Center
     ) {
@@ -71,14 +71,14 @@ fun MjpegView(
                             verticalArrangement = Arrangement.Center
                         ) {
                             CircularProgressIndicator(
-                                color = Amber,
+                                color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(36.dp)
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
                                 text = "Connecting to camera…",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF9A9D97)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -89,14 +89,14 @@ fun MjpegView(
                             verticalArrangement = Arrangement.Center
                         ) {
                             CircularProgressIndicator(
-                                color = Amber,
+                                color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(36.dp)
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
                                 text = "Receiving stream…",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF9A9D97)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -115,21 +115,21 @@ fun MjpegView(
                             Icon(
                                 imageVector = Icons.Default.Warning,
                                 contentDescription = "Warning",
-                                tint = Red,
+                                tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(36.dp)
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = "Camera connection failed",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Color(0xFFE7E4D9)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             if (errorMessage != null) {
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = errorMessage,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF9A9D97),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -137,7 +137,7 @@ fun MjpegView(
                             Text(
                                 text = "Retry #$retryCount — tap to reconnect",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Amber
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -146,7 +146,7 @@ fun MjpegView(
                         Text(
                             text = "Camera Offline",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color(0xFF9A9D97)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -164,7 +164,7 @@ fun MjpegView(
         ) {
             Text(
                 text = if (cameraState == CameraState.STREAMING) "LIVE · CAM-ESP" else "OFFLINE · CAM-ESP",
-                color = if (cameraState == CameraState.STREAMING) Amber else Color(0xFF9A9D97),
+                color = if (cameraState == CameraState.STREAMING) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,
                 letterSpacing = 0.5.sp

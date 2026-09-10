@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,14 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.esp32.robotcontroller.model.SensorData
-import com.esp32.robotcontroller.ui.theme.Amber
-import com.esp32.robotcontroller.ui.theme.BorderLine
-import com.esp32.robotcontroller.ui.theme.BorderLineSoft
-import com.esp32.robotcontroller.ui.theme.PanelDark
-import com.esp32.robotcontroller.ui.theme.PanelDark2
-import com.esp32.robotcontroller.ui.theme.TextDim
-import com.esp32.robotcontroller.ui.theme.TextFaint
-import com.esp32.robotcontroller.ui.theme.TextMain
 import java.util.Locale
 
 @Composable
@@ -40,8 +33,8 @@ fun SensorGridView(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(3.dp))
-            .border(1.dp, BorderLine, RoundedCornerShape(3.dp))
-            .background(PanelDark)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(14.dp)
     ) {
         // Card Head: 04 Live sensor data
@@ -54,14 +47,14 @@ fun SensorGridView(
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.SemiBold,
-                color = Amber
+                color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.padding(horizontal = 4.dp))
             Text(
                 text = "Live sensor data",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = TextMain
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
 
@@ -125,8 +118,8 @@ fun SensorGridView(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(3.dp))
-                    .border(1.dp, BorderLineSoft, RoundedCornerShape(3.dp))
-                    .background(PanelDark2)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .padding(vertical = 12.dp, horizontal = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -135,7 +128,7 @@ fun SensorGridView(
                         text = "LAST UPDATE",
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = TextFaint,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         letterSpacing = 0.5.sp
                     )
                     Spacer(modifier = Modifier.height(6.dp))
@@ -144,7 +137,7 @@ fun SensorGridView(
                         fontSize = 18.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        color = TextDim
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -162,8 +155,8 @@ private fun SensorBox(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(3.dp))
-            .border(1.dp, BorderLineSoft, RoundedCornerShape(3.dp))
-            .background(PanelDark2)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .padding(vertical = 12.dp, horizontal = 10.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -172,7 +165,7 @@ private fun SensorBox(
                 text = name,
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,
-                color = TextFaint,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 letterSpacing = 0.5.sp
             )
             Spacer(modifier = Modifier.height(6.dp))
@@ -182,7 +175,7 @@ private fun SensorBox(
                     fontSize = 20.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
-                    color = TextMain
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (unit != null) {
                     Spacer(modifier = Modifier.padding(horizontal = 2.dp))
@@ -190,7 +183,7 @@ private fun SensorBox(
                         text = unit,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = TextFaint
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }

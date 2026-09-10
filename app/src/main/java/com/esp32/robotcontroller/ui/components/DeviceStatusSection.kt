@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,16 +25,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.esp32.robotcontroller.model.DeviceStatus
-import com.esp32.robotcontroller.ui.theme.Amber
-import com.esp32.robotcontroller.ui.theme.BorderLine
-import com.esp32.robotcontroller.ui.theme.BorderLineSoft
 import com.esp32.robotcontroller.ui.theme.Green
 import com.esp32.robotcontroller.ui.theme.GreenDim
-import com.esp32.robotcontroller.ui.theme.PanelDark
 import com.esp32.robotcontroller.ui.theme.Red
 import com.esp32.robotcontroller.ui.theme.RedDim
-import com.esp32.robotcontroller.ui.theme.TextFaint
-import com.esp32.robotcontroller.ui.theme.TextMain
 
 @Composable
 fun DeviceStatusSection(
@@ -113,8 +108,8 @@ private fun NodeCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(3.dp))
-            .border(1.dp, BorderLine, RoundedCornerShape(3.dp))
-            .background(PanelDark)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(14.dp)
     ) {
         // Card Head with Pill
@@ -129,14 +124,14 @@ private fun NodeCard(
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.SemiBold,
-                    color = Amber
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.padding(horizontal = 4.dp))
                 Text(
                     text = title,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextMain
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -146,17 +141,17 @@ private fun NodeCard(
                     .clip(RoundedCornerShape(20.dp))
                     .border(
                         1.dp,
-                        if (isOnline) GreenDim else RedDim,
+                        if (isOnline) GreenDim else MaterialTheme.colorScheme.errorContainer,
                         RoundedCornerShape(20.dp)
                     )
-                    .background(if (isOnline) Color(0x106FDC8C) else Color(0x10FF6B6B))
+                    .background(if (isOnline) Color(0x106FDC8C) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 Text(
                     text = if (isOnline) "online" else "offline",
                     fontSize = 10.5.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isOnline) Green else Red
+                    color = if (isOnline) Green else MaterialTheme.colorScheme.error
                 )
             }
         }
@@ -170,7 +165,7 @@ private fun NodeCard(
                     .fillMaxWidth()
                     .border(
                         width = 0.5.dp,
-                        color = BorderLineSoft.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(0.dp)
                     )
                     .padding(vertical = 6.dp),
@@ -180,14 +175,14 @@ private fun NodeCard(
                 Text(
                     text = k,
                     fontSize = 12.5.sp,
-                    color = TextFaint
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
                 Text(
                     text = v,
                     fontSize = 12.5.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Medium,
-                    color = TextMain
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -27,17 +28,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.esp32.robotcontroller.ui.theme.BorderLine
-import com.esp32.robotcontroller.ui.theme.BorderLineSoft
-import com.esp32.robotcontroller.ui.theme.PanelDark
-import com.esp32.robotcontroller.ui.theme.PanelDark2
-import com.esp32.robotcontroller.ui.theme.TextDim
-import com.esp32.robotcontroller.ui.theme.TextFaint
-import com.esp32.robotcontroller.ui.theme.TextMain
 import java.util.Locale
 
 data class GraphDataset(
@@ -58,8 +53,8 @@ fun SensorGraphCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(3.dp))
-            .border(1.dp, BorderLine, RoundedCornerShape(3.dp))
-            .background(PanelDark)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(14.dp)
     ) {
         Row(
@@ -71,7 +66,7 @@ fun SensorGraphCard(
                 text = title,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = TextMain
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             // Legend
@@ -92,7 +87,7 @@ fun SensorGraphCard(
                             text = ds.name,
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace,
-                            color = TextDim
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -106,7 +101,7 @@ fun SensorGraphCard(
                 .fillMaxWidth()
                 .height(160.dp)
                 .clip(RoundedCornerShape(3.dp))
-                .background(PanelDark2)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .padding(6.dp)
         ) {
             SensorGraphCanvas(
@@ -126,14 +121,17 @@ private fun SensorGraphCanvas(
     forcedMax: Float?,
     modifier: Modifier = Modifier
 ) {
-    val textPaint = remember {
+    val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+    val textPaint = remember(axisTextColor) {
         Paint().apply {
-            color = android.graphics.Color.parseColor("#9A9D97")
+            color = axisTextColor
             textSize = 22f
             isAntiAlias = true
             textAlign = Paint.Align.RIGHT
         }
     }
+    val gridLineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    val baseLineColor = MaterialTheme.colorScheme.outlineVariant
 
     Canvas(modifier = modifier) {
         val w = size.width
@@ -172,7 +170,7 @@ private fun SensorGraphCanvas(
 
             // Horizontal line
             drawLine(
-                color = BorderLineSoft,
+                color = gridLineColor,
                 start = Offset(leftMargin, y),
                 end = Offset(leftMargin + graphW, y),
                 strokeWidth = 1f
@@ -190,7 +188,7 @@ private fun SensorGraphCanvas(
 
         // X-axis base line
         drawLine(
-            color = BorderLine,
+            color = baseLineColor,
             start = Offset(leftMargin, topMargin + graphH),
             end = Offset(leftMargin + graphW, topMargin + graphH),
             strokeWidth = 1.5f

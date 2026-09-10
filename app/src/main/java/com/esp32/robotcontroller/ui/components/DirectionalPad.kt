@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -37,11 +38,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.esp32.robotcontroller.ui.theme.Amber
-import com.esp32.robotcontroller.ui.theme.BorderLine
-import com.esp32.robotcontroller.ui.theme.PanelDark2
-import com.esp32.robotcontroller.ui.theme.Red
-import com.esp32.robotcontroller.ui.theme.RedDim
 import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
@@ -130,9 +126,9 @@ private fun DpadButton(
     val isPressed = remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    val normalBg = PanelDark2
-    val pressedBg = Color(0xFF21262A)
-    val borderColor = if (isPressed.value) Amber.copy(alpha = 0.5f) else BorderLine
+    val normalBg = MaterialTheme.colorScheme.surfaceContainerHigh
+    val pressedBg = MaterialTheme.colorScheme.surfaceContainerHighest
+    val borderColor = if (isPressed.value) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
 
     Box(
         contentAlignment = Alignment.Center,
@@ -195,7 +191,7 @@ private fun DpadButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = Amber,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(size * 0.52f)
         )
     }
@@ -209,9 +205,9 @@ private fun DpadStopButton(
     val isPressed = remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    val normalBg = RedDim
-    val pressedBg = Color(0xFF5A2B2B)
-    val borderColor = if (isPressed.value) Red else Color(0xFF6B3232)
+    val normalBg = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+    val pressedBg = MaterialTheme.colorScheme.errorContainer
+    val borderColor = if (isPressed.value) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
 
     Box(
         contentAlignment = Alignment.Center,
@@ -254,7 +250,7 @@ private fun DpadStopButton(
     ) {
         Text(
             text = "STOP",
-            color = Red,
+            color = MaterialTheme.colorScheme.error,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
