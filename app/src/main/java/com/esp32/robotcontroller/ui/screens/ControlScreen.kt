@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,9 +45,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +84,7 @@ import com.esp32.robotcontroller.ui.theme.TextFaint
 import com.esp32.robotcontroller.ui.theme.TextMain
 import com.esp32.robotcontroller.viewmodel.RobotViewModel
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun ControlScreen(viewModel: RobotViewModel) {
@@ -99,6 +102,8 @@ fun ControlScreen(viewModel: RobotViewModel) {
     val motorUrl by viewModel.motorUrl.collectAsState()
     val sensorUrl by viewModel.sensorUrl.collectAsState()
     val cameraUrl by viewModel.cameraUrl.collectAsState()
+    val streamUrl by viewModel.streamUrl.collectAsState()
+    val wsUrl by viewModel.wsUrl.collectAsState()
 
     val motorStatus by viewModel.motorStatus.collectAsState()
     val cameraStatus by viewModel.cameraStatus.collectAsState()
@@ -111,7 +116,8 @@ fun ControlScreen(viewModel: RobotViewModel) {
     val waterHistory by viewModel.waterHistory.collectAsState()
 
     var showConnectionDialog by remember { mutableStateOf(false) }
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
+    val coroutineScope = rememberCoroutineScope()
 
     val isConnected = isMotorOnline || isCameraOnline
 
@@ -130,9 +136,11 @@ fun ControlScreen(viewModel: RobotViewModel) {
             currentMotorUrl = motorUrl,
             currentSensorUrl = sensorUrl,
             currentCameraUrl = cameraUrl,
+            currentStreamUrl = streamUrl,
+            currentWsUrl = wsUrl,
             onDismiss = { showConnectionDialog = false },
-            onSave = { newMotor, newSensor, newCam ->
-                viewModel.updateConnectionUrls(newMotor, newSensor, newCam)
+            onSave = { newMotor, newSensor, newCam, newStream, newWs ->
+                viewModel.updateConnectionUrls(newMotor, newSensor, newCam, newStream, newWs)
             }
         )
     }
@@ -235,12 +243,12 @@ fun ControlScreen(viewModel: RobotViewModel) {
         // NAVIGATION TABS
         // ============================================================
         TabRow(
-            selectedTabIndex = selectedTabIndex,
+            selectedTabIndex = pagerState.currentPage,
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             contentColor = MaterialTheme.colorScheme.primary,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
-                    Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                    Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
                     color = MaterialTheme.colorScheme.primary,
                     height = 2.dp
                 )
@@ -248,16 +256,16 @@ fun ControlScreen(viewModel: RobotViewModel) {
         ) {
             tabs.forEachIndexed { index, tab ->
                 Tab(
-                    selected = selectedTabIndex == index,
-                    onClick = { selectedTabIndex = index },
+                    selected = pagerState.currentPage == index,
+                    onClick = { coroutineScope.launch { pagerState.animateScrollToPage(index) } },
                     icon = { Icon(tab.icon, contentDescription = tab.title, modifier = Modifier.size(18.dp)) },
                     text = {
                         Text(
                             text = tab.title,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
-                            fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedTabIndex == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
+                            color = if (pagerState.currentPage == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 )
@@ -265,15 +273,16 @@ fun ControlScreen(viewModel: RobotViewModel) {
         }
 
         // ============================================================
-        // TAB CONTENT AREA
+        // TAB CONTENT AREA — swipeable via HorizontalPager
         // ============================================================
-        Box(
+        HorizontalPager(
+            state = pagerState,
             modifier = Modifier
                 .fillMaxSize()
                 .navigationBarsPadding()
                 .padding(horizontal = 8.dp, vertical = 6.dp)
-        ) {
-            when (selectedTabIndex) {
+        ) { page ->
+            when (page) {
                 0 -> OptimizedCockpitTab(
                     cameraFrame = cameraFrame,
                     cameraState = cameraState,

@@ -14,9 +14,11 @@ import java.io.InputStream
 import java.util.concurrent.TimeUnit
 
 class RobotApiService(
-    private var motorBaseUrl: String = "http://10.78.24.50",
-    private var sensorBaseUrl: String = "http://10.78.24.51",
-    private var cameraBaseUrl: String = "http://10.78.24.60"
+    private var motorBaseUrl: String = "http://172.17.40.60",
+    private var sensorBaseUrl: String = "http://172.17.40.60",
+    private var cameraBaseUrl: String = "http://172.17.40.60",
+    private var cameraStreamUrl: String = "http://172.17.40.60:82/stream",
+    private var wsUrl: String = "ws://172.17.40.60:81"
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(2, TimeUnit.SECONDS)
@@ -36,15 +38,29 @@ class RobotApiService(
         data class Error(val message: String) : Result<Nothing>()
     }
 
-    fun updateUrls(newMotorUrl: String, newSensorUrl: String, newCameraUrl: String) {
-        this.motorBaseUrl = sanitizeHttpUrl(newMotorUrl, "http://10.78.24.50")
-        this.sensorBaseUrl = sanitizeHttpUrl(newSensorUrl, "http://10.78.24.51")
-        this.cameraBaseUrl = sanitizeHttpUrl(newCameraUrl, "http://10.78.24.60")
+    fun updateUrls(
+        newMotorUrl: String,
+        newSensorUrl: String,
+        newCameraUrl: String,
+        newStreamUrl: String = "",
+        newWsUrl: String = ""
+    ) {
+        this.motorBaseUrl = sanitizeHttpUrl(newMotorUrl, "http://172.17.40.60")
+        this.sensorBaseUrl = sanitizeHttpUrl(newSensorUrl, "http://172.17.40.60")
+        this.cameraBaseUrl = sanitizeHttpUrl(newCameraUrl, "http://172.17.40.60")
+        if (newStreamUrl.isNotBlank()) {
+            this.cameraStreamUrl = newStreamUrl.trim()
+        }
+        if (newWsUrl.isNotBlank()) {
+            this.wsUrl = sanitizeCameraWsUrl(newWsUrl)
+        }
     }
 
     fun getMotorUrl(): String = motorBaseUrl
     fun getSensorUrl(): String = sensorBaseUrl
     fun getCameraUrl(): String = cameraBaseUrl
+    fun getStreamUrl(): String = cameraStreamUrl
+    fun getWsUrl(): String = wsUrl
 
     /* ================= Motor Commands ================= */
 
@@ -250,23 +266,13 @@ class RobotApiService(
     }
 
     fun connectCameraWebSocket(listener: WebSocketListener): WebSocket {
-        val wsUrl = sanitizeCameraWsUrl(cameraBaseUrl)
         val request = Request.Builder()
             .url(wsUrl)
             .build()
         return wsClient.newWebSocket(request, listener)
     }
 
-    fun getCameraStreamUrl(): String {
-        val base = cameraBaseUrl.trimEnd('/')
-        // Standard ESP32-CAM stream is either base:81/stream or base/stream
-        return if (base.contains(":81")) {
-            if (base.endsWith("/stream")) base else "$base/stream"
-        } else {
-            // Check if user already provided path
-            if (base.endsWith("/stream") || base.endsWith(".mjpg")) base else "$base:81/stream"
-        }
-    }
+    fun getCameraStreamUrl(): String = cameraStreamUrl
 
     companion object {
         fun sanitizeHttpUrl(url: String, default: String): String {
@@ -282,11 +288,11 @@ class RobotApiService(
             return withScheme.trimEnd('/')
         }
 
-        fun sanitizeControlUrl(url: String): String = sanitizeHttpUrl(url, "http://10.78.24.50")
+        fun sanitizeControlUrl(url: String): String = sanitizeHttpUrl(url, "http://172.17.40.60")
 
         fun sanitizeCameraWsUrl(url: String): String {
             val trimmed = url.trim()
-            if (trimmed.isEmpty()) return "ws://10.78.24.60/ws"
+            if (trimmed.isEmpty()) return "ws://172.17.40.60:81"
             var result = trimmed
             if (result.startsWith("http://", ignoreCase = true)) {
                 result = "ws://" + result.substring(7)
@@ -296,10 +302,6 @@ class RobotApiService(
                 !result.startsWith("wss://", ignoreCase = true)
             ) {
                 result = "ws://$result"
-            }
-            val withoutScheme = result.substringAfter("://")
-            if (!withoutScheme.contains("/")) {
-                result = "$result/ws"
             }
             return result
         }
