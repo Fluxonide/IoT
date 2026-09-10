@@ -251,10 +251,10 @@ private fun DpadStopButton(
         Text(
             text = "STOP",
             color = MaterialTheme.colorScheme.error,
-            fontSize = 13.sp,
+            fontSize = if (size < 50.dp) 10.sp else 12.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
-            letterSpacing = 0.8.sp
+            letterSpacing = if (size < 50.dp) 0.sp else 0.5.sp
         )
     }
 }
