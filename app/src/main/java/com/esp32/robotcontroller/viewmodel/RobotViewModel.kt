@@ -11,6 +11,7 @@ import com.esp32.robotcontroller.model.SensorData
 import com.esp32.robotcontroller.network.RobotApiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -155,8 +156,16 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         inPreferredConfig = Bitmap.Config.RGB_565
     }
 
-    private val speedFlow = MutableSharedFlow<Int>(extraBufferCapacity = 1)
-    private val servoFlow = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    private val speedFlow = MutableSharedFlow<Int>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    private val servoFlow = MutableSharedFlow<Int>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
 
     private var cameraWebSocket: WebSocket? = null
     private var httpMjpegJob: Job? = null
@@ -306,8 +315,12 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateSpeed(speed: Int) {
-        _currentSpeed.value = speed
-        speedFlow.tryEmit(speed)
+        val clamped = speed.coerceIn(0, 255)
+        _currentSpeed.value = clamped
+        speedFlow.tryEmit(clamped)
+        try {
+            prefs.edit().putInt("motor_speed", clamped).apply()
+        } catch (_: Exception) {}
     }
 
     /* ================= Servo Pan Controls ================= */
