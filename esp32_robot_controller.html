@@ -1,727 +1,1006 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 Robot Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ============================================================
+     TOKENS — field-console palette: dark instrument panel,
+     amber telemetry accent, phosphor-green for "alive" states.
+     ============================================================ */
   :root {
-    --bg: #0d0f14;
-    --bg2: #161a22;
-    --bg3: #1e2330;
-    --border: rgba(255,255,255,0.08);
-    --accent: #3b82f6;
-    --accent2: #22d3ee;
-    --danger: #ef4444;
-    --text: #f1f5f9;
-    --muted: #64748b;
-    --success: #22c55e;
-    --warn: #f59e0b;
+    --bg: #0b0d0e;
+    --bg-raised: #131618;
+    --panel: #15181a;
+    --panel-2: #1a1e20;
+    --line: #262b2e;
+    --line-soft: #1e2224;
+
+    --text: #e7e4d9;
+    --text-dim: #9a9d97;
+    --text-faint: #5f6461;
+
+    --amber: #ffb454;
+    --amber-dim: #7a5a2e;
+    --green: #6fdc8c;
+    --green-dim: #234a30;
+    --red: #ff6b6b;
+    --red-dim: #4a2323;
+    --cyan: #5fd0e0;
+
+    --radius: 3px;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --display: 'Space Grotesk', var(--mono);
   }
-  body { background: transparent; font-family: var(--font-sans, system-ui, sans-serif); color: var(--text); }
 
-  .app { width: 100%; max-width: 420px; margin: 0 auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  * { box-sizing: border-box; }
 
-  .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg2); border-radius: 14px; border: 0.5px solid var(--border); }
-  .header-left { display: flex; align-items: center; gap: 8px; }
-  .logo { width: 28px; height: 28px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
-  .logo svg { width: 16px; height: 16px; fill: white; }
-  .title { font-size: 14px; font-weight: 500; }
-  .subtitle { font-size: 11px; color: var(--muted); }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transition: background 0.3s; }
-  .status-dot.connected { background: var(--success); box-shadow: 0 0 6px var(--success); }
-  .status-dot.error { background: var(--danger); }
-  .status-label { font-size: 11px; color: var(--muted); }
+  body {
+    margin: 0;
+    font-family: var(--mono);
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #14181a 0%, transparent 60%),
+      var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
 
-  .cam-container { position: relative; background: #0a0b0f; border-radius: 14px; border: 0.5px solid var(--border); overflow: hidden; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; }
-  .cam-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; }
-  .cam-icon { opacity: 0.2; }
-  .cam-label { font-size: 12px; color: var(--muted); }
-  .cam-iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
-  .cam-badge { position: absolute; top: 8px; left: 8px; background: rgba(239,68,68,0.9); color: white; font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 20px; display: flex; align-items: center; gap: 4px; }
-  .cam-badge-dot { width: 5px; height: 5px; border-radius: 50%; background: white; animation: blink 1s infinite; }
-  .cam-url { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: var(--muted); font-size: 10px; padding: 2px 7px; border-radius: 6px; }
-  .expand-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.5); border: 0.5px solid var(--border); border-radius: 6px; padding: 4px 7px; font-size: 10px; color: var(--text); cursor: pointer; z-index: 7; }
+  ::selection { background: var(--amber-dim); color: var(--text); }
 
-  .hud-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
-  .hud-readout { position: absolute; top: 8px; left: 54px; background: rgba(0,0,0,0.65); color: #00e5ff; font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 6px; pointer-events: none; z-index: 6; }
-  .hud-btn-group { position: absolute; top: 8px; right: 38px; display: flex; gap: 4px; z-index: 6; }
-  .hud-mini-btn { background: rgba(0,0,0,0.65); border: 0.5px solid var(--border); border-radius: 5px; padding: 2px 6px; font-size: 9px; font-family: monospace; color: #00e5ff; cursor: pointer; user-select: none; }
-  .hud-mini-btn:hover { background: rgba(0,0,0,0.85); color: #22c55e; }
-  .hud-mini-btn.active { background: rgba(0, 229, 255, 0.25); color: #00e5ff; border-color: #00e5ff; }
+  /* ============================================================
+     HEADER
+     ============================================================ */
+  header {
+    background: var(--bg-raised);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
 
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .brand { display: flex; align-items: baseline; gap: 12px; }
 
-  .controls-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .brand-mark {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: 0.01em;
+    color: var(--text);
+  }
 
-  .dpad-panel { background: var(--bg2); border-radius: 14px; border: 0.5px solid var(--border); padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .dpad-label { font-size: 11px; color: var(--muted); align-self: flex-start; }
-  .dpad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); gap: 5px; }
-  .dpad-btn { background: var(--bg3); border: 0.5px solid var(--border); border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; transition: background 0.1s, transform 0.1s; font-size: 18px; touch-action: none; -webkit-tap-highlight-color: transparent; }
-  .dpad-btn:active, .dpad-btn.active { background: var(--accent); transform: scale(0.94); border-color: var(--accent); }
-  .dpad-btn.stop-btn { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); }
-  .dpad-btn.stop-btn:active, .dpad-btn.stop-btn.active { background: var(--danger); }
-  .dpad-btn.empty { pointer-events: none; background: transparent; border-color: transparent; }
+  .brand-mark span { color: var(--amber); }
 
-  .right-panel { display: flex; flex-direction: column; gap: 8px; }
+  .brand-sub {
+    font-size: 11px;
+    color: var(--text-faint);
+    letter-spacing: 0.06em;
+  }
 
-  .speed-panel { background: var(--bg2); border-radius: 14px; border: 0.5px solid var(--border); padding: 14px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
-  .speed-header { display: flex; justify-content: space-between; align-items: center; }
-  .speed-title { font-size: 11px; color: var(--muted); }
-  .speed-val { font-size: 20px; font-weight: 500; color: var(--accent); }
-  .speed-unit { font-size: 10px; color: var(--muted); margin-left: 2px; }
-  .speed-slider { width: 100%; accent-color: var(--accent); }
-  .speed-bar-bg { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
-  .speed-bar { height: 4px; background: var(--accent); border-radius: 2px; transition: width 0.2s; }
-  .speed-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+  .connection {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 6px 14px 6px 10px;
+    background: var(--panel);
+  }
 
-  .telemetry { background: var(--bg2); border-radius: 14px; border: 0.5px solid var(--border); padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .tele-item { display: flex; flex-direction: column; gap: 2px; }
-  .tele-key { font-size: 10px; color: var(--muted); }
-  .tele-val { font-size: 13px; font-weight: 500; }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 0 3px var(--red-dim);
+    transition: background 0.2s, box-shadow 0.2s;
+  }
 
-  .bottom-bar { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }
-  .estop { background: rgba(239,68,68,0.1); border: 1.5px solid var(--danger); border-radius: 12px; padding: 10px; color: var(--danger); font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s; grid-column: 1 / -1; }
-  .estop:active { background: rgba(239,68,68,0.25); transform: scale(0.98); }
-  .estop-icon { font-size: 16px; }
+  .dot.online {
+    background: var(--green);
+    box-shadow: 0 0 0 3px var(--green-dim);
+  }
 
-  .log-panel { background: var(--bg2); border-radius: 14px; border: 0.5px solid var(--border); padding: 12px; }
-  .log-title { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
-  .log-list { display: flex; flex-direction: column; gap: 3px; max-height: 72px; overflow: hidden; }
-  .log-item { font-size: 11px; color: var(--muted); display: flex; gap: 6px; }
-  .log-item .log-time { color: var(--accent2); min-width: 52px; }
-  .log-item .log-ok { color: var(--success); }
-  .log-item .log-err { color: var(--danger); }
+  /* ============================================================
+     LAYOUT
+     ============================================================ */
+  .container {
+    max-width: 1440px;
+    margin: auto;
+    padding: 24px;
+  }
 
-  .config-section { background: var(--bg2); border-radius: 14px; border: 0.5px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-  .config-header-row { display: flex; justify-content: space-between; align-items: center; }
-  .config-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-  .config-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(59,130,246,0.12); color: var(--accent2); }
-  .config-row { display: flex; flex-direction: column; gap: 8px; }
-  .config-card { background: var(--bg3); border-radius: 10px; border: 0.5px solid var(--border); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
-  .config-label-row { display: flex; justify-content: space-between; align-items: center; }
-  .config-label { font-size: 11px; font-weight: 500; color: var(--text); }
-  .config-hint { font-size: 10px; color: var(--muted); }
-  .config-input-group { display: flex; gap: 6px; align-items: center; }
-  .config-input { flex: 1; min-width: 0; background: var(--bg2); border: 0.5px solid var(--border); border-radius: 7px; padding: 6px 9px; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: var(--text); outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
-  .config-input:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-  .paste-btn { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 7px; padding: 6px 9px; font-size: 10px; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 3px; white-space: nowrap; transition: background 0.15s, border-color 0.15s, color 0.15s; user-select: none; }
-  .paste-btn:hover { background: var(--bg); border-color: var(--accent2); color: var(--accent2); }
-  .paste-btn:active { transform: scale(0.96); }
+  .grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 18px;
+    align-items: start;
+  }
+
+  .grid-secondary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-top: 18px;
+  }
+
+  .grid-status {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-top: 18px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0;
+  }
+
+  .card-title .idx {
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .pill {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 4px 9px;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+  }
+
+  .pill.online { color: var(--green); border-color: var(--green-dim); background: rgba(111,220,140,0.06); }
+  .pill.offline { color: var(--red); border-color: var(--red-dim); background: rgba(255,107,107,0.06); }
+
+  /* ============================================================
+     CAMERA
+     ============================================================ */
+  .camera {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #000;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--line-soft);
+    position: relative;
+  }
+
+  .camera img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+  .camera::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+  }
+
+  .camera-frame-tag {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    font-size: 10px;
+    color: var(--amber);
+    background: rgba(0,0,0,0.55);
+    padding: 3px 7px;
+    border-radius: 2px;
+    letter-spacing: 0.04em;
+  }
+
+  /* SERVO */
+  .servo-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .servo-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .servo-readout {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--amber);
+    min-width: 46px;
+    text-align: right;
+  }
+
+  /* ============================================================
+     BUTTONS / SLIDERS
+     ============================================================ */
+  button {
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    border-radius: var(--radius);
+    padding: 11px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    transition: background 0.12s, border-color 0.12s;
+  }
+
+  button:hover { background: #21262a; border-color: #353b3e; }
+  button:active { transform: scale(0.97); }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--line);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--amber);
+    cursor: pointer;
+    border: 2px solid #0b0d0e;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--amber);
+    cursor: pointer;
+    border: 2px solid #0b0d0e;
+  }
+
+  /* ============================================================
+     MOVEMENT CONTROL — compass layout
+     ============================================================ */
+  .dpad-hint {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin: 0 0 16px;
+    line-height: 1.6;
+  }
+
+  .dpad-hint kbd {
+    font-family: var(--mono);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10.5px;
+    color: var(--text-dim);
+  }
+
+  .controls {
+    width: 216px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .move-button {
+    min-height: 58px;
+    font-size: 20px;
+    color: var(--amber);
+  }
+
+  .stop-button {
+    background: var(--red-dim);
+    border-color: #6b3232;
+    color: var(--red);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .stop-button:hover { background: #5a2b2b; }
+
+  .speed-box { margin-top: 26px; }
+
+  .speed-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+  }
+
+  .speed-value {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--amber);
+  }
+
+  /* ============================================================
+     SENSOR READOUTS
+     ============================================================ */
+  .sensor-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+
+  .sensor {
+    background: var(--panel-2);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius);
+    padding: 14px 10px;
+    text-align: center;
+  }
+
+  .sensor-name {
+    color: var(--text-faint);
+    font-size: 10px;
+    letter-spacing: 0.03em;
+    margin-bottom: 10px;
+  }
+
+  .sensor-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .sensor-unit {
+    font-size: 11px;
+    color: var(--text-faint);
+    font-weight: 500;
+  }
+
+  @media (max-width: 900px) {
+    .sensor-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ============================================================
+     NETWORK STATUS
+     ============================================================ */
+  .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+
+  .info-table tr { border-bottom: 1px solid var(--line-soft); }
+  .info-table tr:last-child { border-bottom: none; }
+
+  .info-table td {
+    padding: 8px 0;
+    color: var(--text-faint);
+  }
+
+  .info-table td:last-child {
+    text-align: right;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* ============================================================
+     CHARTS
+     ============================================================ */
+  .graph-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 18px;
+    margin-top: 18px;
+  }
+
+  .chart-container { position: relative; height: 260px; }
+
+  .section-label {
+    font-family: var(--display);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-faint);
+    letter-spacing: 0.05em;
+    margin: 32px 0 -4px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  /* ============================================================
+     MOBILE
+     ============================================================ */
+  @media (max-width: 900px) {
+    .grid, .grid-secondary, .grid-status { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 600px) {
+    header { padding: 13px 16px; }
+    .brand-mark { font-size: 16px; }
+    .container { padding: 14px; }
+    .card { padding: 15px; }
+    .controls { width: 100%; max-width: 240px; }
+  }
+
 </style>
+</head>
+<body>
 
-<div class="app">
-  <h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">ESP32 Robot controller — directional pad, speed slider, live camera feed</h2>
+<header>
+  <div class="brand">
+    <span class="brand-mark">RVR<span>-01</span></span>
+    <span class="brand-sub">FIELD TELEMETRY CONSOLE</span>
+  </div>
+  <div class="connection">
+    <div id="mainDot" class="dot"></div>
+    <span id="mainConnection">Offline</span>
+  </div>
+</header>
 
-  <div class="header">
-    <div class="header-left">
-      <div class="logo">
-        <svg viewBox="0 0 16 16"><path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" opacity="0.3"/><circle cx="8" cy="8" r="2.5"/><path d="M8 3v2M8 11v2M3 8h2M11 8h2"/></svg>
+<div class="container">
+
+  <div class="grid">
+
+    <!-- CAMERA + SERVO -->
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title"><span class="idx">01</span> Optical feed</h2>
+        <span id="cameraOnline" class="pill offline">checking</span>
       </div>
-      <div>
-        <div class="title">RoboCtrl</div>
-        <div class="subtitle">ESP32 Controller</div>
+
+      <div class="camera">
+        <img id="cameraStream" src="http://10.78.24.60:81/stream" alt="ESP32 Camera">
+        <span class="camera-frame-tag">LIVE · CAM-ESP</span>
+      </div>
+
+      <div class="card-head" style="margin-top:22px;">
+        <h2 class="card-title"><span class="idx">02</span> Camera servo</h2>
+      </div>
+
+      <div class="servo-buttons">
+        <button onclick="servoLeft()">◄ Left</button>
+        <button onclick="servoCenter()">● Center</button>
+        <button onclick="servoRight()">Right ►</button>
+      </div>
+
+      <div class="servo-slider-row">
+        <input id="servoSlider" type="range" min="20" max="160" value="90">
+        <span class="servo-readout"><span id="servoValue">90</span>°</span>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;">
-      <div class="status-dot" id="statusDot"></div>
-      <span class="status-label" id="statusLabel">Connecting...</span>
+
+    <!-- MOVEMENT -->
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title"><span class="idx">03</span> Movement control</h2>
+      </div>
+
+      <p class="dpad-hint">
+        Hold a button, or use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> /
+        arrow keys. Release to stop. Losing focus stops the robot automatically.
+      </p>
+
+      <div class="controls">
+        <div></div>
+        <button id="forwardButton" class="move-button">▲</button>
+        <div></div>
+
+        <button id="leftButton" class="move-button">◄</button>
+        <button id="stopButton" class="move-button stop-button">STOP</button>
+        <button id="rightButton" class="move-button">►</button>
+
+        <div></div>
+        <button id="backwardButton" class="move-button">▼</button>
+        <div></div>
+      </div>
+
+      <div class="speed-box">
+        <div class="speed-label-row">
+          <span>MOTOR SPEED</span>
+          <span class="speed-value"><span id="speedValue">180</span> / 255</span>
+        </div>
+        <input id="speedSlider" type="range" min="0" max="255" value="180">
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SENSORS -->
+  <div class="card" style="margin-top:18px;">
+    <div class="card-head">
+      <h2 class="card-title"><span class="idx">04</span> Live sensor data</h2>
+    </div>
+
+    <div class="sensor-grid">
+      <div class="sensor">
+        <div class="sensor-name">DISTANCE</div>
+        <div class="sensor-value"><span id="distance">--</span> <span class="sensor-unit">cm</span></div>
+      </div>
+      <div class="sensor">
+        <div class="sensor-name">TEMPERATURE</div>
+        <div class="sensor-value"><span id="temperature">--</span> <span class="sensor-unit">°C</span></div>
+      </div>
+      <div class="sensor">
+        <div class="sensor-name">HUMIDITY</div>
+        <div class="sensor-value"><span id="humidity">--</span> <span class="sensor-unit">%</span></div>
+      </div>
+      <div class="sensor">
+        <div class="sensor-name">MQ SENSOR</div>
+        <div class="sensor-value"><span id="mq">--</span></div>
+      </div>
+      <div class="sensor">
+        <div class="sensor-name">WATER</div>
+        <div class="sensor-value"><span id="water">--</span></div>
+      </div>
     </div>
   </div>
 
-  <div class="cam-container" id="camContainer">
-    <div class="cam-overlay" id="camOverlay">
-      <div class="cam-icon">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.2">
-          <rect x="2" y="6" width="15" height="12" rx="2"/><path d="M17 9l4-2v10l-4-2"/><circle cx="9" cy="12" r="2.5" opacity="0.6"/>
-        </svg>
+  <!-- NODE STATUS -->
+  <div class="grid-status">
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title"><span class="idx">05</span> Motor node</h2>
+        <span id="motorOnline" class="pill offline">checking</span>
       </div>
-      <div class="cam-label" id="camLabel">Loading stream...</div>
-    </div>
-    <iframe class="cam-iframe" id="camFrame" src="" frameborder="0" scrolling="no" allowfullscreen></iframe>
-    <div class="cam-badge"><div class="cam-badge-dot"></div>LIVE</div>
-    <div class="cam-url" id="camUrl">192.168.137.60</div>
-    <canvas class="hud-canvas" id="hudCanvas"></canvas>
-    <div class="hud-readout" id="hudReadout">P: +0.0° | R: +0.0° | HDG: 000°</div>
-    <div class="hud-btn-group">
-      <button class="hud-mini-btn" id="hudLevelBtn" onclick="zeroGyro()" title="Level / Zero Gyro">LEVEL</button>
-      <button class="hud-mini-btn" id="hudDemoBtn" onclick="toggleGyroDemo()" title="Toggle Gyro Demo">DEMO</button>
-      <button class="hud-mini-btn active" id="hudToggleBtn" onclick="toggleHud()" title="Toggle Airplane HUD">HUD</button>
-    </div>
-    <button class="expand-btn" id="camExpandBtn" onclick="openCamStream()" title="Open camera in new tab">⛶</button>
-  </div>
-
-  <div class="controls-row">
-    <div class="dpad-panel">
-      <div class="dpad-label">Direction</div>
-      <div class="dpad">
-        <div class="dpad-btn empty"></div>
-        <div class="dpad-btn" id="btn-F" data-cmd="F">▲</div>
-        <div class="dpad-btn empty"></div>
-        <div class="dpad-btn" id="btn-L" data-cmd="L">◀</div>
-        <div class="dpad-btn stop-btn" id="btn-S" data-cmd="S">■</div>
-        <div class="dpad-btn" id="btn-R" data-cmd="R">▶</div>
-        <div class="dpad-btn empty"></div>
-        <div class="dpad-btn" id="btn-B" data-cmd="B">▼</div>
-        <div class="dpad-btn empty"></div>
-      </div>
+      <table class="info-table">
+        <tr><td>Device</td><td id="motorDevice">--</td></tr>
+        <tr><td>IP address</td><td id="motorIP">--</td></tr>
+        <tr><td>Gateway</td><td id="motorGateway">--</td></tr>
+        <tr><td>Wi-Fi SSID</td><td id="motorSSID">--</td></tr>
+        <tr><td>RSSI</td><td><span id="motorRSSI">--</span> dBm</td></tr>
+        <tr><td>Channel</td><td id="motorChannel">--</td></tr>
+        <tr><td>Uptime</td><td><span id="motorUptime">--</span> s</td></tr>
+        <tr><td>Motor speed</td><td id="motorSpeed">--</td></tr>
+      </table>
     </div>
 
-    <div class="right-panel">
-      <div class="speed-panel">
-        <div class="speed-header">
-          <span class="speed-title">Speed</span>
-          <span><span class="speed-val" id="speedVal">128</span><span class="speed-unit">/255</span></span>
-        </div>
-        <input type="range" min="0" max="255" value="128" step="1" class="speed-slider" id="speedSlider">
-        <div class="speed-bar-bg"><div class="speed-bar" id="speedBar" style="width:50%"></div></div>
-        <div class="speed-labels"><span>0</span><span>128</span><span>255</span></div>
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title"><span class="idx">06</span> Camera node</h2>
       </div>
-
-      <div class="telemetry">
-        <div class="tele-item">
-          <div class="tele-key">Latency</div>
-          <div class="tele-val" id="tele-lat" style="color:var(--success)">—</div>
-        </div>
-        <div class="tele-item">
-          <div class="tele-key">Uptime</div>
-          <div class="tele-val" id="tele-up">0s</div>
-        </div>
-        <div class="tele-item">
-          <div class="tele-key">Commands</div>
-          <div class="tele-val" id="tele-cmd">0</div>
-        </div>
-        <div class="tele-item">
-          <div class="tele-key">Current</div>
-          <div class="tele-val" id="tele-dir" style="color:var(--accent)">—</div>
-        </div>
-      </div>
+      <table class="info-table">
+        <tr><td>Device</td><td id="cameraDevice">--</td></tr>
+        <tr><td>IP address</td><td id="cameraIP">--</td></tr>
+        <tr><td>Gateway</td><td id="cameraGateway">--</td></tr>
+        <tr><td>Wi-Fi SSID</td><td id="cameraSSID">--</td></tr>
+        <tr><td>RSSI</td><td><span id="cameraRSSI">--</span> dBm</td></tr>
+        <tr><td>Servo angle</td><td><span id="cameraServo">--</span>°</td></tr>
+      </table>
     </div>
   </div>
 
-  <div class="bottom-bar">
-    <button class="estop" id="estopBtn">
-      <span class="estop-icon">⊗</span> Emergency Stop
-    </button>
-  </div>
+  <!-- CHARTS -->
+  <div class="section-label">TELEMETRY HISTORY — LAST 60 SAMPLES</div>
 
-  <div class="log-panel">
-    <div class="log-title">Activity log</div>
-    <div class="log-list" id="logList"></div>
-  </div>
-
-  <div class="config-section">
-    <div class="config-header-row">
-      <span class="config-title">Connection Settings</span>
-      <span class="config-tag">Custom URL / IP</span>
+  <div class="graph-grid">
+    <div class="card">
+      <h2 class="card-title" style="margin-bottom:12px;">Ultrasonic distance</h2>
+      <div class="chart-container"><canvas id="distanceChart"></canvas></div>
     </div>
-    <div class="config-row">
-      <div class="config-card">
-        <div class="config-label-row">
-          <label class="config-label" for="robotIp">Connection Custom URL (Robot)</label>
-          <span class="config-hint">HTTP / HTTPS / IP</span>
-        </div>
-        <div class="config-input-group">
-          <input class="config-input" id="robotIp" placeholder="e.g. http://192.168.137.50 or https://custom-url" spellcheck="false" autocomplete="off">
-          <button type="button" class="paste-btn" onclick="pasteToInput('robotIp')" title="Paste from clipboard">📋 Paste</button>
-        </div>
-      </div>
-      <div class="config-card">
-        <div class="config-label-row">
-          <label class="config-label" for="camIp">Camera Custom URL (Stream)</label>
-          <span class="config-hint">Stream / Video URL</span>
-        </div>
-        <div class="config-input-group">
-          <input class="config-input" id="camIp" placeholder="e.g. http://192.168.137.60/ or https://custom-url" spellcheck="false" autocomplete="off">
-          <button type="button" class="paste-btn" onclick="pasteToInput('camIp')" title="Paste from clipboard">📋 Paste</button>
-        </div>
-      </div>
+    <div class="card">
+      <h2 class="card-title" style="margin-bottom:12px;">Temperature</h2>
+      <div class="chart-container"><canvas id="temperatureChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2 class="card-title" style="margin-bottom:12px;">Humidity</h2>
+      <div class="chart-container"><canvas id="humidityChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2 class="card-title" style="margin-bottom:12px;">MQ sensor</h2>
+      <div class="chart-container"><canvas id="mqChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h2 class="card-title" style="margin-bottom:12px;">Water sensor</h2>
+      <div class="chart-container"><canvas id="waterChart"></canvas></div>
     </div>
   </div>
+
 </div>
 
 <script>
-  function getStoredItem(key, defaultVal) {
-    try {
-      const v = localStorage.getItem(key);
-      return v !== null && v !== '' ? v : defaultVal;
-    } catch (e) {
-      return defaultVal;
-    }
-  }
 
-  function setStoredItem(key, val) {
-    try {
-      localStorage.setItem(key, val);
-    } catch (e) {}
-  }
+// ============================================================
+// ESP32 IP ADDRESSES
+// ============================================================
+const MOTOR_ESP = "http://10.78.24.50";
+const CAMERA_ESP = "http://10.78.24.60";
 
-  function normalizeRobotUrl(input) {
-    let val = (input || '').trim();
-    if (!val) val = '192.168.137.50';
-    if (!/^https?:\/\//i.test(val)) {
-      val = 'http://' + val;
-    }
-    return val.replace(/\/+$/, '');
-  }
+// ============================================================
+// GRAPH SETTINGS
+// ============================================================
+const MAX_POINTS = 60;
+let labels = [];
 
-  function normalizeCamUrl(input) {
-    let val = (input || '').trim();
-    if (!val) val = '192.168.137.60';
-    if (!/^https?:\/\//i.test(val)) {
-      val = 'http://' + val;
-    }
-    try {
-      const u = new URL(val);
-      if (!u.pathname || u.pathname === '') {
-        u.pathname = '/';
-      }
-      return u.toString();
-    } catch (e) {
-      return val.includes('/') ? val : val + '/';
-    }
-  }
+const chartTextColor = "#9a9d97";
+const chartGridColor = "#1e2224";
 
-  function getDisplayUrl(urlStr) {
-    if (!urlStr) return '';
-    const trimmed = urlStr.trim();
-    try {
-      if (/^https?:\/\//i.test(trimmed)) {
-        const u = new URL(trimmed);
-        return u.host + (u.pathname && u.pathname !== '/' ? u.pathname : '');
-      }
-    } catch (e) {}
-    return trimmed.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
-  }
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = chartTextColor;
 
-  const ROBOT_BASE = () => normalizeRobotUrl(document.getElementById('robotIp').value);
-  const CAM_BASE = () => normalizeCamUrl(document.getElementById('camIp').value);
-
-  function buildRobotUrl(endpoint) {
-    const base = ROBOT_BASE();
-    const cleanEndpoint = (endpoint || '').replace(/^\/+/, '');
-    return `${base}/${cleanEndpoint}`;
-  }
-
-  async function pasteToInput(inputId) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    try {
-      if (navigator.clipboard && navigator.clipboard.readText) {
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          input.value = text.trim();
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
+function createChart(canvasID, label, color) {
+  return new Chart(document.getElementById(canvasID), {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: label,
+        data: [],
+        borderWidth: 2,
+        borderColor: color,
+        backgroundColor: color + "22",
+        tension: 0.25,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { intersect: false, mode: "index" },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          grid: { color: chartGridColor },
+          ticks: { maxTicksLimit: 6, color: chartTextColor }
+        },
+        y: {
+          beginAtZero: false,
+          grid: { color: chartGridColor },
+          ticks: { color: chartTextColor }
         }
-      } else {
-        input.focus();
-        input.select();
       }
-    } catch (err) {
-      input.focus();
-      input.select();
     }
-  }
-
-  function openCamStream() {
-    const url = CAM_BASE();
-    if (url) window.open(url, '_blank', 'noopener,noreferrer');
-  }
-  window.openLink = openCamStream;
-
-  let cmdCount = 0, startTime = Date.now(), currentCmd = null, speedTimer = null;
-  let activeBtn = null, lastSentCmd = null, pingInterval = null;
-
-  const dot = document.getElementById('statusDot');
-  const statusLabel = document.getElementById('statusLabel');
-  const logList = document.getElementById('logList');
-  const speedSlider = document.getElementById('speedSlider');
-  const speedVal = document.getElementById('speedVal');
-  const speedBar = document.getElementById('speedBar');
-  const camFrame = document.getElementById('camFrame');
-  const camOverlay = document.getElementById('camOverlay');
-  const camLabel = document.getElementById('camLabel');
-
-  function getTime() {
-    const now = new Date();
-    return `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
-  }
-
-  function log(msg, type='ok') {
-    const item = document.createElement('div');
-    item.className = 'log-item';
-    const cls = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : '';
-    item.innerHTML = `<span class="log-time">${getTime()}</span><span class="${cls}">${msg}</span>`;
-    logList.insertBefore(item, logList.firstChild);
-    while(logList.children.length > 6) logList.removeChild(logList.lastChild);
-  }
-
-  async function sendCmd(endpoint, silent=false) {
-    const t0 = performance.now();
-    try {
-      const res = await fetch(buildRobotUrl(endpoint), { signal: AbortSignal.timeout(2000) });
-      const ms = Math.round(performance.now() - t0);
-      document.getElementById('tele-lat').textContent = ms + 'ms';
-      document.getElementById('tele-lat').style.color = ms < 80 ? 'var(--success)' : ms < 200 ? 'var(--warn)' : 'var(--danger)';
-      dot.className = 'status-dot connected';
-      statusLabel.textContent = 'Connected';
-      if (!silent) { cmdCount++; document.getElementById('tele-cmd').textContent = cmdCount; }
-      return true;
-    } catch(e) {
-      dot.className = 'status-dot error';
-      statusLabel.textContent = 'Unreachable';
-      if (!silent) log(`/${endpoint.replace(/^\/+/, '')} failed`, 'err');
-      return false;
-    }
-  }
-
-  async function ping() {
-    const t0 = performance.now();
-    try {
-      await fetch(buildRobotUrl('S'), { signal: AbortSignal.timeout(2000) });
-      const ms = Math.round(performance.now() - t0);
-      document.getElementById('tele-lat').textContent = ms + 'ms';
-      dot.className = 'status-dot connected';
-      statusLabel.textContent = 'Connected';
-    } catch {
-      dot.className = 'status-dot error';
-      statusLabel.textContent = 'Offline';
-    }
-  }
-
-  function updateSpeed(val) {
-    val = parseInt(val);
-    speedVal.textContent = val;
-    speedBar.style.width = Math.round(val/255*100) + '%';
-    clearTimeout(speedTimer);
-    speedTimer = setTimeout(() => {
-      sendCmd(`speed?v=${val}`, true);
-      log(`Speed → ${val}`, 'ok');
-    }, 120);
-  }
-
-  speedSlider.addEventListener('input', e => updateSpeed(e.target.value));
-
-  function setActive(btn) {
-    if(activeBtn) activeBtn.classList.remove('active');
-    activeBtn = btn;
-    if(btn) btn.classList.add('active');
-  }
-
-  function onPress(cmd, btn) {
-    if(lastSentCmd === cmd) return;
-    lastSentCmd = cmd;
-    setActive(btn);
-    const dirMap = {F:'FWD',B:'BWD',L:'LEFT',R:'RIGHT',S:'STOP'};
-    document.getElementById('tele-dir').textContent = dirMap[cmd]||cmd;
-    sendCmd(cmd).then(ok => { if(ok) log(`/${cmd}`, 'ok'); });
-  }
-
-  function onRelease() {
-    if(lastSentCmd === 'S') return;
-    lastSentCmd = 'S';
-    setActive(null);
-    document.getElementById('tele-dir').textContent = 'STOP';
-    sendCmd('S', true);
-  }
-
-  document.querySelectorAll('.dpad-btn[data-cmd]').forEach(btn => {
-    const cmd = btn.dataset.cmd;
-    const isStop = cmd === 'S';
-    btn.addEventListener('pointerdown', e => {
-      e.preventDefault();
-      btn.setPointerCapture(e.pointerId);
-      onPress(cmd, btn);
-    });
-    btn.addEventListener('pointerup', () => { if(!isStop) onRelease(); });
-    btn.addEventListener('pointercancel', () => { if(!isStop) onRelease(); });
   });
+}
 
-  document.getElementById('estopBtn').addEventListener('click', () => {
-    lastSentCmd = null;
-    setActive(null);
-    onPress('S', null);
-    log('Emergency STOP!', 'err');
-    const btn = document.getElementById('estopBtn');
-    btn.style.background = 'rgba(239,68,68,0.3)';
-    setTimeout(() => btn.style.background = '', 300);
-    if(navigator.vibrate) navigator.vibrate([50,20,50]);
+// ============================================================
+// CREATE CHARTS
+// ============================================================
+const distanceChart = createChart("distanceChart", "Distance (cm)", "#ffb454");
+const temperatureChart = createChart("temperatureChart", "Temperature (°C)", "#ff6b6b");
+const humidityChart = createChart("humidityChart", "Humidity (%)", "#5fd0e0");
+const mqChart = createChart("mqChart", "MQ Value", "#6fdc8c");
+const waterChart = createChart("waterChart", "Water Value", "#c792ea");
+
+// ============================================================
+// ADD GRAPH DATA
+// ============================================================
+function addData(chart, value) {
+  chart.data.datasets[0].data.push(value);
+}
+
+// ============================================================
+// LIMIT GRAPH DATA
+// ============================================================
+function limitGraphData() {
+  while (labels.length > MAX_POINTS) { labels.shift(); }
+
+  const charts = [distanceChart, temperatureChart, humidityChart, mqChart, waterChart];
+  charts.forEach(chart => {
+    while (chart.data.datasets[0].data.length > MAX_POINTS) {
+      chart.data.datasets[0].data.shift();
+    }
   });
+}
 
-  document.querySelectorAll('.dpad-btn[data-cmd]:not([data-cmd="S"])').forEach(btn => {
-    btn.addEventListener('pointerdown', () => { if(navigator.vibrate) navigator.vibrate(10); });
-  });
+// ============================================================
+// UPDATE GRAPHS
+// ============================================================
+function updateCharts() {
+  distanceChart.update("none");
+  temperatureChart.update("none");
+  humidityChart.update("none");
+  mqChart.update("none");
+  waterChart.update("none");
+}
 
-  function loadCam() {
-    const url = CAM_BASE();
-    const display = getDisplayUrl(camInput.value);
-    camLabel.textContent = 'Loading stream from ' + display;
-    camOverlay.style.opacity = '1';
-    camOverlay.style.pointerEvents = 'auto';
-    camFrame.src = url;
-    camFrame.onload = () => {
-      camOverlay.style.opacity = '0';
-      camOverlay.style.pointerEvents = 'none';
-    };
-    camFrame.onerror = () => {
-      camLabel.textContent = 'Stream unavailable';
-    };
+// ============================================================
+// MOTOR CONTROL
+// ============================================================
+let currentCommand = "S";
+
+function sendMotorCommand(command) {
+  currentCommand = command;
+  fetch(MOTOR_ESP + "/" + command, { cache: "no-store" }).catch(() => {});
+}
+
+function startMovement(command) { sendMotorCommand(command); }
+function stopMovement() { sendMotorCommand("S"); }
+
+// ============================================================
+// BUTTON HOLD CONTROL
+// ============================================================
+function setupHoldButton(buttonID, command) {
+  const button = document.getElementById(buttonID);
+
+  button.addEventListener("mousedown", function(event) { event.preventDefault(); startMovement(command); });
+  button.addEventListener("mouseup", function(event) { event.preventDefault(); stopMovement(); });
+  button.addEventListener("mouseleave", function() { stopMovement(); });
+
+  button.addEventListener("touchstart", function(event) { event.preventDefault(); startMovement(command); }, { passive: false });
+  button.addEventListener("touchend", function(event) { event.preventDefault(); stopMovement(); }, { passive: false });
+  button.addEventListener("touchcancel", function(event) { event.preventDefault(); stopMovement(); }, { passive: false });
+}
+
+setupHoldButton("forwardButton", "F");
+setupHoldButton("backwardButton", "B");
+setupHoldButton("leftButton", "L");
+setupHoldButton("rightButton", "R");
+
+// ============================================================
+// STOP BUTTON
+// ============================================================
+document.getElementById("stopButton").addEventListener("click", function() { stopMovement(); });
+
+// ============================================================
+// SPEED
+// ============================================================
+const speedSlider = document.getElementById("speedSlider");
+speedSlider.addEventListener("input", function() {
+  const speed = this.value;
+  document.getElementById("speedValue").textContent = speed;
+  fetch(MOTOR_ESP + "/speed?v=" + speed).catch(() => {});
+});
+
+// ============================================================
+// SERVO
+// ============================================================
+const servoSlider = document.getElementById("servoSlider");
+servoSlider.addEventListener("input", function() {
+  const angle = this.value;
+  document.getElementById("servoValue").textContent = angle;
+  fetch(CAMERA_ESP + "/servo?angle=" + angle).catch(() => {});
+});
+
+function servoLeft() {
+  servoSlider.value = 20;
+  document.getElementById("servoValue").textContent = 20;
+  fetch(CAMERA_ESP + "/left").catch(() => {});
+}
+
+function servoCenter() {
+  servoSlider.value = 90;
+  document.getElementById("servoValue").textContent = 90;
+  fetch(CAMERA_ESP + "/center").catch(() => {});
+}
+
+function servoRight() {
+  servoSlider.value = 160;
+  document.getElementById("servoValue").textContent = 160;
+  fetch(CAMERA_ESP + "/right").catch(() => {});
+}
+
+// ============================================================
+// SENSOR DATA
+// ============================================================
+async function getSensorData() {
+  try {
+    const response = await fetch(MOTOR_ESP + "/data", { cache: "no-store" });
+    if (!response.ok) { throw new Error("ESP32 error"); }
+    const data = await response.json();
+
+    document.getElementById("distance").textContent = formatValue(data.distance);
+    document.getElementById("temperature").textContent = formatValue(data.temperature);
+    document.getElementById("humidity").textContent = formatValue(data.humidity);
+    document.getElementById("mq").textContent = formatValue(data.mq);
+    document.getElementById("water").textContent = formatValue(data.water);
+
+    const now = new Date().toLocaleTimeString();
+    labels.push(now);
+
+    addData(distanceChart, Number(data.distance));
+    addData(temperatureChart, Number(data.temperature));
+    addData(humidityChart, Number(data.humidity));
+    addData(mqChart, Number(data.mq));
+    addData(waterChart, Number(data.water));
+
+    limitGraphData();
+    updateCharts();
+
+    setMotorOnline(true);
+  }
+  catch (error) {
+    console.log("Sensor error:", error);
+    setMotorOnline(false);
+  }
+}
+
+// ============================================================
+// MOTOR STATUS
+// ============================================================
+async function getMotorStatus() {
+  try {
+    const response = await fetch(MOTOR_ESP + "/status", { cache: "no-store" });
+    if (!response.ok) { throw new Error("Status error"); }
+    const data = await response.json();
+
+    document.getElementById("motorDevice").textContent = data.device || "--";
+    document.getElementById("motorIP").textContent = data.ip || "--";
+    document.getElementById("motorGateway").textContent = data.gateway || "--";
+    document.getElementById("motorSSID").textContent = data.ssid || "--";
+    document.getElementById("motorRSSI").textContent = data.rssi || "--";
+    document.getElementById("motorChannel").textContent = data.channel || "--";
+    document.getElementById("motorUptime").textContent = data.uptime || "--";
+    document.getElementById("motorSpeed").textContent = data.motorSpeed || "--";
+
+    setMotorOnline(true);
+  }
+  catch (error) {
+    setMotorOnline(false);
+  }
+}
+
+// ============================================================
+// CAMERA STATUS
+// ============================================================
+async function getCameraStatus() {
+  try {
+    const response = await fetch(CAMERA_ESP + "/status", { cache: "no-store" });
+    if (!response.ok) { throw new Error("Camera error"); }
+    const data = await response.json();
+
+    document.getElementById("cameraDevice").textContent = data.device || "--";
+    document.getElementById("cameraIP").textContent = data.ip || "--";
+    document.getElementById("cameraGateway").textContent = data.gateway || "--";
+    document.getElementById("cameraSSID").textContent = data.ssid || "--";
+    document.getElementById("cameraRSSI").textContent = data.rssi || "--";
+    document.getElementById("cameraServo").textContent = data.servoAngle || "--";
+
+    const el = document.getElementById("cameraOnline");
+    el.textContent = "online";
+    el.className = "pill online";
+  }
+  catch (error) {
+    const el = document.getElementById("cameraOnline");
+    el.textContent = "offline";
+    el.className = "pill offline";
+  }
+}
+
+// ============================================================
+// MOTOR ONLINE STATUS
+// ============================================================
+function setMotorOnline(online) {
+  const element = document.getElementById("motorOnline");
+
+  if (online) {
+    element.textContent = "online";
+    element.className = "pill online";
+  } else {
+    element.textContent = "offline";
+    element.className = "pill offline";
   }
 
-  const robotInput = document.getElementById('robotIp');
-  const camInput = document.getElementById('camIp');
+  updateMainConnection();
+}
 
-  // Initialize input fields from stored custom URLs or defaults
-  robotInput.value = getStoredItem('esp32_robot_url', 'http://192.168.137.50');
-  camInput.value = getStoredItem('esp32_cam_url', 'http://192.168.137.60/');
+// ============================================================
+// MAIN CONNECTION
+// ============================================================
+function updateMainConnection() {
+  const motor = document.getElementById("motorOnline").textContent === "online";
+  const camera = document.getElementById("cameraOnline").textContent === "online";
 
-  let robotInputTimer = null;
-  function handleRobotUrlChange(isImmediate = false) {
-    clearTimeout(robotInputTimer);
-    const update = () => {
-      const val = robotInput.value.trim();
-      setStoredItem('esp32_robot_url', val);
-      ping();
-      log(`Robot URL: ${ROBOT_BASE()}`, 'ok');
-    };
-    if (isImmediate) update();
-    else robotInputTimer = setTimeout(update, 350);
+  const dot = document.getElementById("mainDot");
+  const text = document.getElementById("mainConnection");
+
+  if (motor || camera) {
+    dot.classList.add("online");
+    text.textContent = "Connected";
+  } else {
+    dot.classList.remove("online");
+    text.textContent = "Offline";
+  }
+}
+
+// ============================================================
+// NUMBER FORMAT
+// ============================================================
+function formatValue(value) {
+  if (value === undefined || value === null || isNaN(value)) { return "--"; }
+  return Number(value).toFixed(1);
+}
+
+// ============================================================
+// KEYBOARD CONTROL
+// ============================================================
+let keyboardCommand = null;
+
+document.addEventListener("keydown", function(event) {
+  if (event.repeat) return;
+
+  let command = null;
+
+  switch (event.key.toLowerCase()) {
+    case "w": case "arrowup": command = "F"; break;
+    case "s": case "arrowdown": command = "B"; break;
+    case "a": case "arrowleft": command = "L"; break;
+    case "d": case "arrowright": command = "R"; break;
+    case " ": stopMovement(); return;
   }
 
-  let camInputTimer = null;
-  function handleCamUrlChange(isImmediate = false) {
-    clearTimeout(camInputTimer);
-    const update = () => {
-      const val = camInput.value.trim();
-      setStoredItem('esp32_cam_url', val);
-      document.getElementById('camUrl').textContent = getDisplayUrl(val);
-      loadCam();
-      log(`Camera URL: ${getDisplayUrl(val)}`, 'ok');
-    };
-    if (isImmediate) update();
-    else camInputTimer = setTimeout(update, 350);
+  if (command) {
+    keyboardCommand = command;
+    startMovement(command);
   }
+});
 
-  robotInput.addEventListener('input', () => handleRobotUrlChange(false));
-  robotInput.addEventListener('change', () => handleRobotUrlChange(true));
-  robotInput.addEventListener('paste', () => setTimeout(() => handleRobotUrlChange(true), 50));
-
-  camInput.addEventListener('input', () => handleCamUrlChange(false));
-  camInput.addEventListener('change', () => handleCamUrlChange(true));
-  camInput.addEventListener('paste', () => setTimeout(() => handleCamUrlChange(true), 50));
-
-  document.getElementById('camUrl').textContent = getDisplayUrl(camInput.value);
-
-  setInterval(() => {
-    const s = Math.floor((Date.now() - startTime)/1000);
-    document.getElementById('tele-up').textContent = s < 60 ? s+'s' : Math.floor(s/60)+'m '+s%60+'s';
-  }, 1000);
-
-  loadCam();
-  ping();
-  setInterval(ping, 5000);
-  log('Controller started', 'ok');
-
-  // ================= AIRPLANE GYROSCOPE HUD =================
-  let gyroState = {
-    pitch: 0,
-    roll: 0,
-    yaw: 0,
-    pitchOffset: 0,
-    rollOffset: 0,
-    smoothPitch: 0,
-    smoothRoll: 0,
-    smoothYaw: 0,
-    visible: true,
-    demo: false
-  };
-
-  const hudCanvas = document.getElementById('hudCanvas');
-  const hudCtx = hudCanvas ? hudCanvas.getContext('2d') : null;
-  const hudReadout = document.getElementById('hudReadout');
-  const hudToggleBtn = document.getElementById('hudToggleBtn');
-  const hudDemoBtn = document.getElementById('hudDemoBtn');
-
-  function resizeHudCanvas() {
-    if (!hudCanvas) return;
-    const rect = hudCanvas.getBoundingClientRect();
-    if (rect.width && rect.height) {
-      const dpr = window.devicePixelRatio || 1;
-      hudCanvas.width = rect.width * dpr;
-      hudCanvas.height = rect.height * dpr;
-    }
+document.addEventListener("keyup", function(event) {
+  switch (event.key.toLowerCase()) {
+    case "w": case "s": case "a": case "d":
+    case "arrowup": case "arrowdown": case "arrowleft": case "arrowright":
+      if (keyboardCommand) {
+        stopMovement();
+        keyboardCommand = null;
+      }
+      break;
   }
-  window.addEventListener('resize', resizeHudCanvas);
+});
 
-  function toggleHud() {
-    gyroState.visible = !gyroState.visible;
-    if (hudToggleBtn) hudToggleBtn.classList.toggle('active', gyroState.visible);
-    if (hudCanvas) hudCanvas.style.display = gyroState.visible ? 'block' : 'none';
-    if (hudReadout) hudReadout.style.display = gyroState.visible ? 'block' : 'none';
-  }
+// ============================================================
+// SAFETY STOP
+// ============================================================
+window.addEventListener("blur", function() { stopMovement(); });
 
-  function toggleGyroDemo() {
-    gyroState.demo = !gyroState.demo;
-    if (hudDemoBtn) hudDemoBtn.classList.toggle('active', gyroState.demo);
-    if (gyroState.demo) log('Gyro demo mode: ON', 'ok');
-    else log('Gyro demo mode: OFF', 'ok');
-  }
+document.addEventListener("visibilitychange", function() {
+  if (document.hidden) { stopMovement(); }
+});
 
-  function zeroGyro() {
-    gyroState.pitchOffset += gyroState.pitch;
-    gyroState.rollOffset += gyroState.roll;
-    log('Gyro calibrated to level', 'ok');
-  }
+// ============================================================
+// START
+// ============================================================
+getSensorData();
+getMotorStatus();
+getCameraStatus();
 
-  function updateGyro(p, r, y) {
-    if (gyroState.demo) return;
-    gyroState.pitch = p;
-    gyroState.roll = r;
-    if (y !== undefined) gyroState.yaw = y;
-  }
+setInterval(getSensorData, 1000);
+setInterval(getMotorStatus, 2000);
+setInterval(getCameraStatus, 2000);
 
-  let demoStep = 0;
-  function renderHud() {
-    requestAnimationFrame(renderHud);
-    if (!gyroState.visible || !hudCtx || !hudCanvas) return;
-
-    if (gyroState.demo) {
-      demoStep += 0.04;
-      gyroState.pitch = Math.sin(demoStep * 0.7) * 15;
-      gyroState.roll = Math.sin(demoStep) * 25;
-      gyroState.yaw = (demoStep * 15) % 360;
-    }
-
-    const currentPitch = gyroState.pitch - gyroState.pitchOffset;
-    const currentRoll = gyroState.roll - gyroState.rollOffset;
-    const currentYaw = (gyroState.yaw % 360 + 360) % 360;
-
-    gyroState.smoothPitch += (currentPitch - gyroState.smoothPitch) * 0.2;
-    gyroState.smoothRoll += (currentRoll - gyroState.smoothRoll) * 0.2;
-    gyroState.smoothYaw += (currentYaw - gyroState.smoothYaw) * 0.2;
-
-    const sp = gyroState.smoothPitch;
-    const sr = gyroState.smoothRoll;
-    const sy = gyroState.smoothYaw;
-
-    if (hudReadout) {
-      hudReadout.textContent = `P: ${sp >= 0 ? '+' : ''}${sp.toFixed(1)}° | R: ${sr >= 0 ? '+' : ''}${sr.toFixed(1)}° | HDG: ${Math.round(sy).toString().padStart(3, '0')}°`;
-    }
-
-    const w = hudCanvas.width;
-    const h = hudCanvas.height;
-    if (w === 0 || h === 0) return;
-
-    hudCtx.clearRect(0, 0, w, h);
-
-    const cx = w / 2;
-    const cy = h / 2;
-    const pxPerDeg = h / 60;
-
-    hudCtx.save();
-
-    // 1. Artificial Horizon & Pitch Ladder
-    hudCtx.translate(cx, cy);
-    hudCtx.rotate((-sr * Math.PI) / 180);
-    hudCtx.translate(0, sp * pxPerDeg);
-
-    // Horizon line
-    hudCtx.strokeStyle = '#00e5ff';
-    hudCtx.lineWidth = 2.5;
-    const gap = 35;
-    const hLen = w * 0.38;
-
-    hudCtx.beginPath();
-    hudCtx.moveTo(-hLen, 0);
-    hudCtx.lineTo(-gap, 0);
-    hudCtx.moveTo(gap, 0);
-    hudCtx.lineTo(hLen, 0);
-    hudCtx.stroke();
-
-    // Pitch ladder rungs
-    const rungs = [-30, -20, -10, 10, 20, 30];
-    for (const deg of rungs) {
-      const y = -deg * pxPerDeg;
-      const rWidth = deg % 20 === 0 ? 45 : 30;
-      const isClimb = deg > 0;
-      const tickH = isClimb ? 6 : -6;
-
-      hudCtx.strokeStyle = 'rgba(0, 229, 255, 0.8)';
-      hudCtx.lineWidth = 2;
-      hudCtx.setLineDash(isClimb ? [] : [6, 4]);
-
-      hudCtx.beginPath();
-      hudCtx.moveTo(-gap - rWidth, y);
-      hudCtx.lineTo(-gap, y);
-      hudCtx.lineTo(-gap, y + tickH);
-      hudCtx.moveTo(gap, y + tickH);
-      hudCtx.lineTo(gap, y);
-      hudCtx.lineTo(gap + rWidth, y);
-      hudCtx.stroke();
-    }
-    hudCtx.setLineDash([]);
-    hudCtx.restore();
-
-    // 2. Roll Bank Arc
-    hudCtx.save();
-    const arcRadius = Math.min(w, h) * 0.4;
-    const angles = [-60, -45, -30, -20, -10, 0, 10, 20, 30, 45, 60];
-    for (const a of angles) {
-      const rad = ((a - 90) * Math.PI) / 180;
-      const tLen = a === 0 || a % 30 === 0 ? 8 : 5;
-      const x1 = cx + arcRadius * Math.cos(rad);
-      const y1 = cy + arcRadius * Math.sin(rad);
-      const x2 = cx + (arcRadius + tLen) * Math.cos(rad);
-      const y2 = cy + (arcRadius + tLen) * Math.sin(rad);
-
-      hudCtx.strokeStyle = a === 0 ? '#ffd600' : 'rgba(0, 229, 255, 0.6)';
-      hudCtx.lineWidth = a === 0 ? 2.5 : 1.5;
-      hudCtx.beginPath();
-      hudCtx.moveTo(x1, y1);
-      hudCtx.lineTo(x2, y2);
-      hudCtx.stroke();
-    }
-
-    // Roll pointer
-    const ptrRad = ((-sr - 90) * Math.PI) / 180;
-    const px = cx + (arcRadius - 3) * Math.cos(ptrRad);
-    const py = cy + (arcRadius - 3) * Math.sin(ptrRad);
-    const pxBack = cx + (arcRadius - 12) * Math.cos(ptrRad);
-    const pyBack = cy + (arcRadius - 12) * Math.sin(ptrRad);
-
-    hudCtx.strokeStyle = '#ffd600';
-    hudCtx.lineWidth = 3;
-    hudCtx.beginPath();
-    hudCtx.moveTo(pxBack, pyBack);
-    hudCtx.lineTo(px, py);
-    hudCtx.stroke();
-    hudCtx.restore();
-
-    // 3. Fixed Aircraft Waterline Boresight
-    hudCtx.save();
-    hudCtx.strokeStyle = '#ffd600';
-    hudCtx.lineWidth = 3;
-    hudCtx.fillStyle = '#ffd600';
-    const wSpan = 32;
-    const wGap = 10;
-    const wDrop = 6;
-
-    hudCtx.beginPath();
-    hudCtx.moveTo(cx - wSpan, cy);
-    hudCtx.lineTo(cx - wGap, cy);
-    hudCtx.lineTo(cx - wGap, cy + wDrop);
-    hudCtx.moveTo(cx + wSpan, cy);
-    hudCtx.lineTo(cx + wGap, cy);
-    hudCtx.lineTo(cx + wGap, cy + wDrop);
-    hudCtx.stroke();
-
-    hudCtx.beginPath();
-    hudCtx.arc(cx, cy, 2.5, 0, Math.PI * 2);
-    hudCtx.fill();
-    hudCtx.restore();
-  }
-
-  setTimeout(resizeHudCanvas, 100);
-  requestAnimationFrame(renderHud);
-  window.updateGyro = updateGyro;
-  window.zeroGyro = zeroGyro;
-  window.toggleHud = toggleHud;
-  window.toggleGyroDemo = toggleGyroDemo;
 </script>
+
+</body>
+</html>

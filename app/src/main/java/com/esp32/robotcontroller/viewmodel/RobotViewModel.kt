@@ -453,7 +453,7 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                parseTelemetryMessage(text)
+                // Text telemetry via WebSocket is unused
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
