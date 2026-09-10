@@ -2,10 +2,12 @@ package com.esp32.robotcontroller.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -25,8 +27,9 @@ import com.esp32.robotcontroller.ui.theme.Amber
 import com.esp32.robotcontroller.ui.theme.BorderLine
 import com.esp32.robotcontroller.ui.theme.BorderLineSoft
 import com.esp32.robotcontroller.ui.theme.PanelDark
+import com.esp32.robotcontroller.ui.theme.PanelDark2
 import com.esp32.robotcontroller.ui.theme.TextDim
-import com.esp32.robotcontroller.ui.theme.TextFaint
+import com.esp32.robotcontroller.ui.theme.TextMain
 
 @Composable
 fun SpeedSlider(
@@ -40,7 +43,7 @@ fun SpeedSlider(
             .clip(RoundedCornerShape(4.dp))
             .border(1.dp, BorderLine, RoundedCornerShape(4.dp))
             .background(PanelDark)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Column {
             Row(
@@ -58,12 +61,41 @@ fun SpeedSlider(
                 )
                 Text(
                     text = "$currentSpeed / 255",
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     color = Amber
                 )
             }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Quick gear presets: Slow (100), Med (180), Max (255)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                SpeedPresetChip(
+                    label = "SLOW (100)",
+                    isSelected = currentSpeed == 100,
+                    onClick = { onSpeedChange(100) },
+                    modifier = Modifier.weight(1f)
+                )
+                SpeedPresetChip(
+                    label = "MED (180)",
+                    isSelected = currentSpeed == 180,
+                    onClick = { onSpeedChange(180) },
+                    modifier = Modifier.weight(1f)
+                )
+                SpeedPresetChip(
+                    label = "MAX (255)",
+                    isSelected = currentSpeed == 255,
+                    onClick = { onSpeedChange(255) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             Slider(
                 value = currentSpeed.toFloat(),
@@ -79,6 +111,36 @@ fun SpeedSlider(
                 )
             )
         }
+    }
+}
+
+@Composable
+private fun SpeedPresetChip(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val bg = if (isSelected) Amber.copy(alpha = 0.15f) else PanelDark2
+    val border = if (isSelected) Amber else BorderLine
+    val textColor = if (isSelected) Amber else TextMain
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(3.dp))
+            .border(1.dp, border, RoundedCornerShape(3.dp))
+            .background(bg)
+            .clickable { onClick() }
+            .padding(vertical = 5.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            color = textColor
+        )
     }
 }
 

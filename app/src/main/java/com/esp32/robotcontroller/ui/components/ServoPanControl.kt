@@ -35,7 +35,10 @@ import com.esp32.robotcontroller.ui.theme.TextMain
 fun ServoPanControl(
     servoAngle: Int,
     onAngleChange: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onServoLeft: (() -> Unit)? = null,
+    onServoCenter: (() -> Unit)? = null,
+    onServoRight: (() -> Unit)? = null
 ) {
     Box(
         modifier = modifier
@@ -77,19 +80,19 @@ fun ServoPanControl(
                 ServoPresetButton(
                     label = "◄ Left",
                     isSelected = servoAngle == 20,
-                    onClick = { onAngleChange(20) },
+                    onClick = { onServoLeft?.invoke() ?: onAngleChange(20) },
                     modifier = Modifier.weight(1f)
                 )
                 ServoPresetButton(
                     label = "● Center",
                     isSelected = servoAngle == 90,
-                    onClick = { onAngleChange(90) },
+                    onClick = { onServoCenter?.invoke() ?: onAngleChange(90) },
                     modifier = Modifier.weight(1f)
                 )
                 ServoPresetButton(
                     label = "Right ►",
                     isSelected = servoAngle == 160,
-                    onClick = { onAngleChange(160) },
+                    onClick = { onServoRight?.invoke() ?: onAngleChange(160) },
                     modifier = Modifier.weight(1f)
                 )
             }

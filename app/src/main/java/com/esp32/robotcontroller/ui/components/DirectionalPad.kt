@@ -49,8 +49,8 @@ fun DirectionalPad(
     onDirectionPress: (String) -> Unit,
     onDirectionRelease: () -> Unit,
     modifier: Modifier = Modifier,
-    buttonSize: Dp = 52.dp,
-    spacing: Dp = 6.dp
+    buttonSize: Dp = 64.dp,
+    spacing: Dp = 8.dp
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -138,8 +138,8 @@ private fun DpadButton(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(size)
-            .clip(RoundedCornerShape(6.dp))
-            .border(1.dp, borderColor, RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
             .background(if (isPressed.value) pressedBg else normalBg)
             .pointerInput(Unit) {
                 awaitEachGesture {
@@ -211,14 +211,14 @@ private fun DpadStopButton(
 
     val normalBg = RedDim
     val pressedBg = Color(0xFF5A2B2B)
-    val borderColor = Color(0xFF6B3232)
+    val borderColor = if (isPressed.value) Red else Color(0xFF6B3232)
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(size)
-            .clip(RoundedCornerShape(6.dp))
-            .border(1.dp, borderColor, RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
             .background(if (isPressed.value) pressedBg else normalBg)
             .pointerInput(Unit) {
                 awaitEachGesture {
@@ -255,10 +255,10 @@ private fun DpadStopButton(
         Text(
             text = "STOP",
             color = Red,
-            fontSize = 11.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
-            letterSpacing = 0.5.sp
+            letterSpacing = 0.8.sp
         )
     }
 }
