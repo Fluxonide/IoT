@@ -31,9 +31,6 @@ import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.atan2
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 enum class CameraState {
     DISCONNECTED,   // Not started or stopped
@@ -551,110 +548,12 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun toggleHud() {
-        _isHudVisible.value = !_isHudVisible.value
-    }
-
-    fun setHudVisible(visible: Boolean) {
-        _isHudVisible.value = visible
-    }
-
-    fun toggleDemoMode() {
-        val next = !_isGyroDemoMode.value
-        _isGyroDemoMode.value = next
-        if (next) startGyroDemo() else stopGyroDemo()
-    }
-
-    fun zeroGyro() {
-        pitchOffset = rawPitch
-        rollOffset = rawRoll
-        updateCalibratedValues()
-    }
-
-    fun updateGyroData(p: Float, r: Float, y: Float) {
-        if (_isGyroDemoMode.value) return
-        rawPitch = p
-        rawRoll = r
-        rawYaw = y
-        updateCalibratedValues()
-    }
-
-    private fun updateCalibratedValues() {
-        _pitch.value = rawPitch - pitchOffset
-        _roll.value = rawRoll - rollOffset
-        _yaw.value = (rawYaw % 360f + 360f) % 360f
-    }
-
-    private fun startGyroDemo() {
-        demoJob?.cancel()
-        demoJob = viewModelScope.launch {
-            var step = 0f
-            while (isActive && _isGyroDemoMode.value) {
-                step += 0.05f
-                val demoPitch = (sin(step * 0.7f) * 15f).toFloat()
-                val demoRoll = (sin(step.toDouble()) * 25.0).toFloat()
-                val demoYaw = ((step * 10f) % 360f)
-                _pitch.value = demoPitch
-                _roll.value = demoRoll
-                _yaw.value = demoYaw
-                delay(33)
-            }
-        }
-    }
-
-    private fun stopGyroDemo() {
-        demoJob?.cancel()
-        demoJob = null
-        updateCalibratedValues()
-    }
-
-    private fun parseTelemetryMessage(text: String) {
-        try {
-            val trimmed = text.trim()
-            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-                val json = JSONObject(trimmed)
-                val p = when {
-                    json.has("pitch") -> json.getDouble("pitch").toFloat()
-                    json.has("p") -> json.getDouble("p").toFloat()
-                    json.has("x") -> json.getDouble("x").toFloat()
-                    else -> null
-                }
-                val r = when {
-                    json.has("roll") -> json.getDouble("roll").toFloat()
-                    json.has("r") -> json.getDouble("r").toFloat()
-                    json.has("y") -> json.getDouble("y").toFloat()
-                    else -> null
-                }
-                val y = when {
-                    json.has("yaw") -> json.getDouble("yaw").toFloat()
-                    json.has("heading") -> json.getDouble("heading").toFloat()
-                    json.has("z") -> json.getDouble("z").toFloat()
-                    else -> null
-                }
-                if (p != null || r != null) {
-                    updateGyroData(p ?: rawPitch, r ?: rawRoll, y ?: rawYaw)
-                }
-            } else if (trimmed.contains(",") || trimmed.startsWith("GYRO:", ignoreCase = true)) {
-                val clean = trimmed.removePrefix("GYRO:").removePrefix("gyro:").trim()
-                val parts = clean.split(",").mapNotNull { it.trim().toFloatOrNull() }
-                if (parts.size >= 2) {
-                    val p = parts[0]
-                    val r = parts[1]
-                    val y = if (parts.size >= 3) parts[2] else rawYaw
-                    updateGyroData(p, r, y)
-                }
-            }
-        } catch (_: Exception) {
-            // Ignore
-        }
-    }
-
     override fun onCleared() {
         super.onCleared()
         stopCameraStream()
         sensorPollJob?.cancel()
         statusPollJob?.cancel()
         uptimeJob?.cancel()
-        demoJob?.cancel()
     }
 }
+
