@@ -15,7 +15,7 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = project.findProperty("versionCode")?.toString()?.toIntOrNull() ?: 2
-        versionName = project.findProperty("versionName")?.toString() ?: "1.1"
+        versionName = project.findProperty("versionName")?.toString() ?: "1.0.0-beta.2"
     }
 
     signingConfigs {
