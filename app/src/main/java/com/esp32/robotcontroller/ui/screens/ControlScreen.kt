@@ -320,13 +320,12 @@ fun ControlScreen(viewModel: RobotViewModel) {
 
 private data class TabItem(val title: String, val icon: ImageVector)
 
+
 /* ============================================================
-   TAB 1: OPTIMIZED CONTROLS COCKPIT
-   - 01 Optical Feed with integrated Pan Servo Control
-   - 04 Live Sensor Telemetry Strip (Glanceable HUD)
-   - 03 Movement & Speed Cockpit (Side-by-side D-Pad & Throttle)
-   Engineered for 392 dpi (and all standard DPIs) so controls
-   never get pushed down or cut off off-screen!
+   TAB 1: CONTROLS COCKPIT
+   Uses weight-based layout so the camera feed fills the top
+   and controls fill the bottom — nothing gets cut off and
+   everything is properly sized on any DPI (392, 440, etc.)
    ============================================================ */
 
 @Composable
@@ -349,159 +348,120 @@ private fun OptimizedCockpitTab(
     onServoCenter: () -> Unit,
     onServoRight: () -> Unit
 ) {
-    val scrollState = rememberScrollState()
     val configuration = LocalConfiguration.current
-    val screenHeightDp = configuration.screenHeightDp.dp
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val isCompact = screenHeightDp < 700.dp
-    val isMedium = screenHeightDp in 700.dp..840.dp // covers standard 392 dpi phones
-
-    // Adaptive sizing based on screen density / DPI / display scaling
-    val cameraStreamHeight = when {
-        isLandscape -> 120.dp
-        isCompact -> 115.dp
-        isMedium -> 130.dp
-        else -> 155.dp
-    }
-    val dpadButtonSize = when {
-        isLandscape -> 44.dp
-        isCompact -> 42.dp
-        isMedium -> 48.dp
-        else -> 52.dp
-    }
-    val dpadSpacing = when {
-        isLandscape -> 4.dp
-        isCompact -> 3.dp
-        isMedium -> 4.dp
-        else -> 5.dp
-    }
-    val cardPadding = if (isCompact || isMedium) 8.dp else 10.dp
-    val cardSpacing = if (isCompact || isMedium) 5.dp else 7.dp
 
     if (isLandscape) {
-        // Landscape 2-Column Split Cockpit
+        // LANDSCAPE: Camera left, Controls right
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState),
+            modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Column(
-                modifier = Modifier.weight(1.05f),
-                verticalArrangement = Arrangement.spacedBy(cardSpacing)
+                modifier = Modifier
+                    .weight(1.1f)
+                    .fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                OpticalFeedCard(
+                CameraFeedSection(
                     cameraFrame = cameraFrame,
                     cameraState = cameraState,
                     isCameraOnline = isCameraOnline,
                     cameraRetryCount = cameraRetryCount,
                     cameraError = cameraError,
-                    servoAngle = servoAngle,
-                    cameraStreamHeight = cameraStreamHeight,
-                    cardPadding = cardPadding,
                     onRetryCamera = onRetryCamera,
+                    modifier = Modifier.weight(1f)
+                )
+                ServoPanRow(
+                    servoAngle = servoAngle,
                     onServoChange = onServoChange,
                     onServoLeft = onServoLeft,
                     onServoCenter = onServoCenter,
                     onServoRight = onServoRight
                 )
-
-                LiveSensorsStrip(
-                    sensorData = sensorData,
-                    cardPadding = cardPadding
-                )
             }
-
             Column(
-                modifier = Modifier.weight(0.95f),
-                verticalArrangement = Arrangement.spacedBy(cardSpacing)
+                modifier = Modifier
+                    .weight(0.9f)
+                    .fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                MovementAndSpeedCard(
+                ControlsSection(
                     currentDirection = currentDirection,
                     currentSpeed = currentSpeed,
-                    dpadButtonSize = dpadButtonSize,
-                    dpadSpacing = dpadSpacing,
-                    cardPadding = cardPadding,
+                    sensorData = sensorData,
                     onDirectionPress = onDirectionPress,
                     onDirectionRelease = onDirectionRelease,
-                    onSpeedChange = onSpeedChange
+                    onSpeedChange = onSpeedChange,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
     } else {
-        // Portrait Cockpit Layout:
-        // Compact height ensures all 3 sections remain fully on screen on 392 dpi
+        // PORTRAIT: Camera top, Controls bottom — weight-based, no scrolling needed
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(cardSpacing)
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // CARD 1: 01 OPTICAL FEED & INTEGRATED SERVO PAN
-            OpticalFeedCard(
-                cameraFrame = cameraFrame,
-                cameraState = cameraState,
-                isCameraOnline = isCameraOnline,
-                cameraRetryCount = cameraRetryCount,
-                cameraError = cameraError,
-                servoAngle = servoAngle,
-                cameraStreamHeight = cameraStreamHeight,
-                cardPadding = cardPadding,
-                onRetryCamera = onRetryCamera,
-                onServoChange = onServoChange,
-                onServoLeft = onServoLeft,
-                onServoCenter = onServoCenter,
-                onServoRight = onServoRight
-            )
+            // TOP: Camera Feed + Servo Pan (~40%)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.42f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                CameraFeedSection(
+                    cameraFrame = cameraFrame,
+                    cameraState = cameraState,
+                    isCameraOnline = isCameraOnline,
+                    cameraRetryCount = cameraRetryCount,
+                    cameraError = cameraError,
+                    onRetryCamera = onRetryCamera,
+                    modifier = Modifier.weight(1f)
+                )
+                ServoPanRow(
+                    servoAngle = servoAngle,
+                    onServoChange = onServoChange,
+                    onServoLeft = onServoLeft,
+                    onServoCenter = onServoCenter,
+                    onServoRight = onServoRight
+                )
+            }
 
-            // CARD 2: 04 LIVE SENSORS TELEMETRY STRIP (HIGH-VISIBILITY HUD)
-            LiveSensorsStrip(
-                sensorData = sensorData,
-                cardPadding = cardPadding
-            )
-
-            // CARD 3: 03 MOVEMENT & SPEED COCKPIT (SIDE-BY-SIDE ERGONOMIC CONTROL)
-            MovementAndSpeedCard(
+            // BOTTOM: Controls (~58%)
+            ControlsSection(
                 currentDirection = currentDirection,
                 currentSpeed = currentSpeed,
-                dpadButtonSize = dpadButtonSize,
-                dpadSpacing = dpadSpacing,
-                cardPadding = cardPadding,
+                sensorData = sensorData,
                 onDirectionPress = onDirectionPress,
                 onDirectionRelease = onDirectionRelease,
-                onSpeedChange = onSpeedChange
+                onSpeedChange = onSpeedChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.58f)
             )
-
-            Spacer(modifier = Modifier.height(4.dp))
         }
     }
 }
 
 @Composable
-private fun OpticalFeedCard(
+private fun CameraFeedSection(
     cameraFrame: android.graphics.Bitmap?,
     cameraState: com.esp32.robotcontroller.viewmodel.CameraState,
     isCameraOnline: Boolean,
     cameraRetryCount: Int,
     cameraError: String?,
-    servoAngle: Int,
-    cameraStreamHeight: androidx.compose.ui.unit.Dp,
-    cardPadding: androidx.compose.ui.unit.Dp,
     onRetryCamera: () -> Unit,
-    onServoChange: (Int) -> Unit,
-    onServoLeft: () -> Unit,
-    onServoCenter: () -> Unit,
-    onServoRight: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(4.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+            .clip(RoundedCornerShape(6.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(cardPadding)
+            .padding(8.dp)
     ) {
-        // Header: 01 Optical feed
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -523,8 +483,6 @@ private fun OpticalFeedCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-
-            // Camera status pill
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
@@ -543,7 +501,7 @@ private fun OpticalFeedCard(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Adaptive Camera stream viewport
+        // Camera stream fills all remaining vertical space
         MjpegView(
             frame = cameraFrame,
             cameraState = cameraState,
@@ -552,156 +510,89 @@ private fun OpticalFeedCard(
             onRetry = onRetryCamera,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(cameraStreamHeight)
+                .weight(1f)
         )
-
-        Spacer(modifier = Modifier.height(5.dp))
-
-        // Integrated Sleek Camera Pan Servo Control Row (replaces previous multi-row stack)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = "PAN",
-                fontSize = 9.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            QuickActionChip(
-                label = "◄ 20°",
-                isSelected = servoAngle == 20,
-                onClick = onServoLeft,
-                modifier = Modifier.weight(0.9f)
-            )
-            QuickActionChip(
-                label = "● 90°",
-                isSelected = servoAngle == 90,
-                onClick = onServoCenter,
-                modifier = Modifier.weight(0.9f)
-            )
-            QuickActionChip(
-                label = "160° ►",
-                isSelected = servoAngle == 160,
-                onClick = onServoRight,
-                modifier = Modifier.weight(0.9f)
-            )
-
-            var localServoAngle by remember(servoAngle) { mutableFloatStateOf(servoAngle.toFloat()) }
-            Slider(
-                value = localServoAngle,
-                onValueChange = {
-                    localServoAngle = it
-                    onServoChange(it.toInt())
-                },
-                valueRange = 20f..160f,
-                modifier = Modifier
-                    .weight(1.6f)
-                    .height(20.dp),
-                colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colorScheme.primary,
-                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
-                )
-            )
-
-            Text(
-                text = "$servoAngle°",
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
     }
 }
 
 @Composable
-private fun LiveSensorsStrip(
-    sensorData: com.esp32.robotcontroller.model.SensorData,
-    cardPadding: androidx.compose.ui.unit.Dp
+private fun ServoPanRow(
+    servoAngle: Int,
+    onServoChange: (Int) -> Unit,
+    onServoLeft: () -> Unit,
+    onServoCenter: () -> Unit,
+    onServoRight: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(4.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(horizontal = cardPadding, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        val distVal = sensorData.distance
-        val isObstacleClose = distVal in 0.1f..15f
-        val isObstacleCaution = distVal in 15f..30f
-        val distColor = when {
-            isObstacleClose -> MaterialTheme.colorScheme.error
-            isObstacleCaution -> Amber
-            else -> MaterialTheme.colorScheme.onSurface
-        }
-
-        MiniSensorBox(
-            label = "DIST",
-            value = String.format(Locale.US, "%.1f", distVal),
-            unit = "cm",
-            valueColor = distColor,
-            isAlert = isObstacleClose,
-            modifier = Modifier.weight(1.15f)
+        Text(
+            text = "PAN",
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
         )
 
-        MiniSensorBox(
-            label = "TEMP",
-            value = String.format(Locale.US, "%.1f", sensorData.temperature),
-            unit = "°C",
-            modifier = Modifier.weight(1f)
+        QuickActionChip(label = "◄ 20°", isSelected = servoAngle == 20, onClick = onServoLeft, modifier = Modifier.weight(0.8f))
+        QuickActionChip(label = "● 90°", isSelected = servoAngle == 90, onClick = onServoCenter, modifier = Modifier.weight(0.8f))
+        QuickActionChip(label = "160° ►", isSelected = servoAngle == 160, onClick = onServoRight, modifier = Modifier.weight(0.8f))
+
+        var localServoAngle by remember(servoAngle) { mutableFloatStateOf(servoAngle.toFloat()) }
+        Slider(
+            value = localServoAngle,
+            onValueChange = {
+                localServoAngle = it
+                onServoChange(it.toInt())
+            },
+            valueRange = 20f..160f,
+            modifier = Modifier
+                .weight(1.5f)
+                .height(24.dp),
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+            )
         )
 
-        MiniSensorBox(
-            label = "HUM",
-            value = String.format(Locale.US, "%.0f", sensorData.humidity),
-            unit = "%",
-            modifier = Modifier.weight(1f)
-        )
-
-        MiniSensorBox(
-            label = "MQ",
-            value = String.format(Locale.US, "%.0f", sensorData.mq),
-            unit = null,
-            modifier = Modifier.weight(0.9f)
-        )
-
-        MiniSensorBox(
-            label = "WATER",
-            value = String.format(Locale.US, "%.0f", sensorData.water),
-            unit = null,
-            modifier = Modifier.weight(0.95f)
+        Text(
+            text = "$servoAngle°",
+            fontSize = 11.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }
 
 @Composable
-private fun MovementAndSpeedCard(
+private fun ControlsSection(
     currentDirection: String,
     currentSpeed: Int,
-    dpadButtonSize: androidx.compose.ui.unit.Dp,
-    dpadSpacing: androidx.compose.ui.unit.Dp,
-    cardPadding: androidx.compose.ui.unit.Dp,
+    sensorData: com.esp32.robotcontroller.model.SensorData,
     onDirectionPress: (String) -> Unit,
     onDirectionRelease: () -> Unit,
-    onSpeedChange: (Int) -> Unit
+    onSpeedChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(4.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+            .clip(RoundedCornerShape(6.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(cardPadding)
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Header: 03 Movement & Speed + Live driving status pill
+        // Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -725,168 +616,155 @@ private fun MovementAndSpeedCard(
             }
 
             val isBraked = currentDirection == "STOP" || currentDirection.isEmpty()
-            val statusText = when (currentDirection) {
-                "F" -> "DRIVING (FWD ▲)"
-                "B" -> "DRIVING (REV ▼)"
-                "L" -> "TURNING (LEFT ◄)"
-                "R" -> "TURNING (RIGHT ►)"
-                else -> "BRAKED"
-            }
-            val statusColor = if (isBraked) Red else Green
-            val statusBg = if (isBraked) RedDim else GreenDim
-
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(statusBg)
+                    .background(if (isBraked) RedDim else GreenDim)
                     .padding(horizontal = 7.dp, vertical = 2.dp)
             ) {
                 Text(
-                    text = statusText,
+                    text = when (currentDirection) {
+                        "F" -> "FWD ▲"
+                        "B" -> "REV ▼"
+                        "L" -> "LEFT ◄"
+                        "R" -> "RIGHT ►"
+                        else -> "BRAKED"
+                    },
                     fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
-                    color = statusColor
+                    color = if (isBraked) Red else Green
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // Side-by-Side Ergonomic Cockpit: D-Pad on Left, Speed Throttle on Right!
-        // This cuts vertical height in half, ensuring movement & speed never get cut off on 392 dpi
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // D-Pad — centered, fills available vertical space
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentAlignment = Alignment.Center
         ) {
-            // DIRECTIONAL PAD
             DirectionalPad(
                 onDirectionPress = onDirectionPress,
                 onDirectionRelease = onDirectionRelease,
-                buttonSize = dpadButtonSize,
-                spacing = dpadSpacing
+                buttonSize = 56.dp,
+                spacing = 6.dp
             )
+        }
 
-            // MOTOR SPEED THROTTLE COLUMN
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
-                    .padding(horizontal = 7.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+        // Speed Throttle
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Header: THROTTLE label + Speed readout
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "THROTTLE",
-                        fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 0.5.sp
-                    )
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "$currentSpeed",
-                            fontSize = 14.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = " / 255",
-                            fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-
-                // Speed Slider
-                var localSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed.toFloat()) }
-                Slider(
-                    value = localSpeed,
-                    onValueChange = {
-                        localSpeed = it
-                        onSpeedChange(it.toInt())
-                    },
-                    valueRange = 0f..255f,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(20.dp),
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
-                    )
+                Text(
+                    text = "MOTOR SPEED",
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 0.5.sp
                 )
-
-                // Gear Presets: 100, 180, 255
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    QuickActionChip(
-                        label = "100",
-                        isSelected = currentSpeed == 100,
-                        onClick = { onSpeedChange(100) },
-                        modifier = Modifier.weight(1f)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$currentSpeed",
+                        fontSize = 16.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    QuickActionChip(
-                        label = "180",
-                        isSelected = currentSpeed == 180,
-                        onClick = { onSpeedChange(180) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    QuickActionChip(
-                        label = "255",
-                        isSelected = currentSpeed == 255,
-                        onClick = { onSpeedChange(255) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                // Precision Steppers: -10, 0 (IDLE), +10
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    QuickStepButton(
-                        label = "-10",
-                        onClick = { onSpeedChange((currentSpeed - 10).coerceAtLeast(0)) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    QuickStepButton(
-                        label = "0 IDLE",
-                        onClick = { onSpeedChange(0) },
-                        modifier = Modifier.weight(1.2f)
-                    )
-                    QuickStepButton(
-                        label = "+10",
-                        onClick = { onSpeedChange((currentSpeed + 10).coerceAtMost(255)) },
-                        modifier = Modifier.weight(1f)
+                    Text(
+                        text = " / 255",
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }
+
+            var localSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed.toFloat()) }
+            Slider(
+                value = localSpeed,
+                onValueChange = {
+                    localSpeed = it
+                    onSpeedChange(it.toInt())
+                },
+                valueRange = 0f..255f,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp),
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                )
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                QuickStepButton(
+                    label = "−10",
+                    onClick = { onSpeedChange((currentSpeed - 10).coerceAtLeast(0)) },
+                    modifier = Modifier.weight(0.8f)
+                )
+                QuickActionChip(
+                    label = "100",
+                    isSelected = currentSpeed == 100,
+                    onClick = { onSpeedChange(100) },
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionChip(
+                    label = "180",
+                    isSelected = currentSpeed == 180,
+                    onClick = { onSpeedChange(180) },
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionChip(
+                    label = "255",
+                    isSelected = currentSpeed == 255,
+                    onClick = { onSpeedChange(255) },
+                    modifier = Modifier.weight(1f)
+                )
+                QuickStepButton(
+                    label = "+10",
+                    onClick = { onSpeedChange((currentSpeed + 10).coerceAtMost(255)) },
+                    modifier = Modifier.weight(0.8f)
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        // Sensor HUD strip
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val distVal = sensorData.distance
+            val isClose = distVal in 0.1f..15f
+            val distColor = when {
+                isClose -> MaterialTheme.colorScheme.error
+                distVal in 15f..30f -> Amber
+                else -> MaterialTheme.colorScheme.onSurface
+            }
 
-        Text(
-            text = "Hold arrow to drive · Center STOP to brake",
-            fontSize = 8.5.sp,
-            fontFamily = FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
+            MiniSensorBox("DIST", String.format(Locale.US, "%.1f", distVal), "cm", distColor, isClose, Modifier.weight(1f))
+            MiniSensorBox("TEMP", String.format(Locale.US, "%.1f", sensorData.temperature), "°C", modifier = Modifier.weight(1f))
+            MiniSensorBox("HUM", String.format(Locale.US, "%.0f", sensorData.humidity), "%", modifier = Modifier.weight(1f))
+            MiniSensorBox("MQ", String.format(Locale.US, "%.0f", sensorData.mq), null, modifier = Modifier.weight(0.85f))
+            MiniSensorBox("WATER", String.format(Locale.US, "%.0f", sensorData.water), null, modifier = Modifier.weight(0.85f))
+        }
     }
 }
 
@@ -898,16 +776,16 @@ private fun QuickStepButton(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(3.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp))
+            .clip(RoundedCornerShape(4.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable { onClick() }
-            .padding(vertical = 5.dp),
+            .padding(vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
@@ -928,16 +806,16 @@ private fun QuickActionChip(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(3.dp))
-            .border(1.dp, border, RoundedCornerShape(3.dp))
+            .clip(RoundedCornerShape(4.dp))
+            .border(1.dp, border, RoundedCornerShape(4.dp))
             .background(bg)
             .clickable { onClick() }
-            .padding(vertical = 5.dp),
+            .padding(vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             color = textC
@@ -959,10 +837,10 @@ private fun MiniSensorBox(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(3.dp))
-            .border(0.5.dp, border, RoundedCornerShape(3.dp))
+            .clip(RoundedCornerShape(4.dp))
+            .border(0.5.dp, border, RoundedCornerShape(4.dp))
             .background(bg)
-            .padding(horizontal = 2.dp, vertical = 3.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -971,12 +849,13 @@ private fun MiniSensorBox(
                 fontSize = 8.sp,
                 fontFamily = FontFamily.Monospace,
                 color = if (isAlert) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                letterSpacing = 0.2.sp
+                letterSpacing = 0.3.sp
             )
+            Spacer(modifier = Modifier.height(1.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     text = value,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     color = valueColor
@@ -994,6 +873,8 @@ private fun MiniSensorBox(
         }
     }
 }
+
+
 
 /* ============================================================
    TAB 2: TELEMETRY (Sensors + 5 History Charts)
