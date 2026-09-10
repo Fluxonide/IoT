@@ -116,16 +116,19 @@ fun ControlScreen(viewModel: RobotViewModel) {
     val waterHistory by viewModel.waterHistory.collectAsState()
 
     var showConnectionDialog by remember { mutableStateOf(false) }
+
+    val tabs = remember {
+        listOf(
+            TabItem("Controls", Icons.Default.SportsEsports),
+            TabItem("Telemetry", Icons.Default.BarChart),
+            TabItem("Nodes", Icons.Default.Router)
+        )
+    }
+
     val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
     val coroutineScope = rememberCoroutineScope()
 
     val isConnected = isMotorOnline || isCameraOnline
-
-    val tabs = listOf(
-        TabItem("Controls", Icons.Default.SportsEsports),
-        TabItem("Telemetry", Icons.Default.BarChart),
-        TabItem("Nodes", Icons.Default.Router)
-    )
 
     LaunchedEffect(Unit) {
         viewModel.startCameraStream()
