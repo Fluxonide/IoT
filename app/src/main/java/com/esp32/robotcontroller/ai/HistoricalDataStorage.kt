@@ -21,7 +21,7 @@ import java.util.TimeZone
 class HistoricalDataStorage(private val context: Context) {
 
     private val fileName = "sensor_history.csv"
-    private val file: File by lazy {
+    private val csvFile: File by lazy {
         File(context.filesDir, fileName).apply {
             if (!exists()) {
                 createNewFile()
@@ -36,7 +36,7 @@ class HistoricalDataStorage(private val context: Context) {
 
     private fun writeHeader() {
         try {
-            file.writeText("timestamp,temperature,humidity,distance,mq,water\n")
+            csvFile.writeText("timestamp,temperature,humidity,distance,mq,water\n")
         } catch (_: Exception) {}
     }
 
@@ -56,7 +56,7 @@ class HistoricalDataStorage(private val context: Context) {
                 data.mq,
                 data.water
             )
-            FileWriter(file, true).use { writer ->
+            FileWriter(csvFile, true).use { writer ->
                 writer.append(row)
             }
         } catch (_: Exception) {
@@ -64,19 +64,19 @@ class HistoricalDataStorage(private val context: Context) {
         }
     }
 
-    fun getFile(): File = file
+    fun getStorageFile(): File = csvFile
 
     suspend fun clearHistory() = withContext(Dispatchers.IO) {
         try {
-            if (file.exists()) {
-                file.delete()
+            if (csvFile.exists()) {
+                csvFile.delete()
             }
-            file.createNewFile()
+            csvFile.createNewFile()
             writeHeader()
         } catch (_: Exception) {}
     }
 
     suspend fun getFileSize(): Long = withContext(Dispatchers.IO) {
-        if (file.exists()) file.length() else 0L
+        if (csvFile.exists()) csvFile.length() else 0L
     }
 }
