@@ -29,17 +29,15 @@ android {
             }
         }
         create("release") {
-            if (releaseKeystoreFile.exists()) {
-                storeFile = releaseKeystoreFile
-                storePassword = "robotcontroller123"
-                keyAlias = "robotcontroller"
-                keyPassword = "robotcontroller123"
-            } else if (debugKeystoreFile.exists()) {
-                storeFile = debugKeystoreFile
-                storePassword = "android"
-                keyAlias = "androiddebugkey"
-                keyPassword = "android"
+            val keyStore = when {
+                releaseKeystoreFile.exists() -> releaseKeystoreFile
+                debugKeystoreFile.exists() -> debugKeystoreFile
+                else -> file(System.getProperty("user.home") + "/.android/debug.keystore")
             }
+            storeFile = keyStore
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "robotcontroller123"
+            keyAlias = System.getenv("KEY_ALIAS") ?: "robotcontroller"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "robotcontroller123"
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true

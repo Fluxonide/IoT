@@ -42,15 +42,24 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Set up persistent keystore
+      - name: Set up Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          mkdir -p ~/.android
-          cp keystore/debug.keystore ~/.android/debug.keystore
+          mkdir -p ~/.android keystore
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Decoding release keystore from secret..."
+            echo "$KEYSTORE_BASE64" | base64 -d > keystore/release.keystore
+          fi
 
       - name: Build Debug APK
         run: gradle assembleDebug -PversionName="${{ steps.version_info.outputs.version_name }}" -PversionCode="${{ steps.version_info.outputs.version_code }}" --no-daemon
 
       - name: Build Release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle assembleRelease -PversionName="${{ steps.version_info.outputs.version_name }}" -PversionCode="${{ steps.version_info.outputs.version_code }}" --no-daemon
 
       - name: Upload Debug APK
