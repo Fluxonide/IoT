@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -33,12 +34,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.esp32.robotcontroller.ui.theme.Amber
 import java.util.Locale
 
 data class GraphDataset(
     val name: String,
     val data: List<Float>,
-    val color: Color
+    val color: Color,
+    val predictionData: List<Float> = emptyList(),
+    val predictionColor: Color = Amber
 )
 
 @Composable
@@ -49,6 +53,8 @@ fun SensorGraphCard(
     maxVal: Float? = null,
     modifier: Modifier = Modifier
 ) {
+    val hasPrediction = datasets.any { it.predictionData.isNotEmpty() }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -75,6 +81,7 @@ fun SensorGraphCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 for (ds in datasets) {
+                    // Actual / Live legend entry
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
@@ -84,11 +91,29 @@ fun SensorGraphCard(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = ds.name,
+                            text = "${ds.name} (Live)",
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+
+                    // Predicted entry
+                    if (ds.predictionData.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp, 2.dp)
+                                    .background(ds.predictionColor)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "AI Predicted (- -)",
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = Amber.copy(alpha = 0.9f)
+                            )
+                        }
                     }
                 }
             }
@@ -99,7 +124,7 @@ fun SensorGraphCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp)
+                .height(165.dp)
                 .clip(RoundedCornerShape(3.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .padding(6.dp)
@@ -125,11 +150,31 @@ private fun SensorGraphCanvas(
     val textPaint = remember(axisTextColor) {
         Paint().apply {
             color = axisTextColor
-            textSize = 22f
+            textSize = 20f
             isAntiAlias = true
             textAlign = Paint.Align.RIGHT
         }
     }
+
+    val nowPaint = remember {
+        Paint().apply {
+            color = android.graphics.Color.parseColor("#FFB454") // Amber
+            textSize = 20f
+            isFakeBoldText = true
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+        }
+    }
+
+    val subHeaderPaint = remember {
+        Paint().apply {
+            color = android.graphics.Color.parseColor("#5F6461") // TextFaint
+            textSize = 18f
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+        }
+    }
+
     val gridLineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     val baseLineColor = MaterialTheme.colorScheme.outlineVariant
 
@@ -137,9 +182,9 @@ private fun SensorGraphCanvas(
         val w = size.width
         val h = size.height
 
-        val leftMargin = 70f
+        val leftMargin = 64f
         val rightMargin = 16f
-        val topMargin = 20f
+        val topMargin = 22f
         val bottomMargin = 32f
 
         val graphW = w - leftMargin - rightMargin
@@ -147,8 +192,14 @@ private fun SensorGraphCanvas(
 
         if (graphW <= 0 || graphH <= 0) return@Canvas
 
+        val hasPrediction = datasets.any { it.predictionData.isNotEmpty() }
+        val pastRatio = if (hasPrediction) 0.76f else 1.0f
+        val pastW = graphW * pastRatio
+        val futureW = graphW - pastW
+        val xNow = leftMargin + pastW
+
         // Determine min and max
-        val allValues = datasets.flatMap { it.data }.filter { it.isFinite() }
+        val allValues = datasets.flatMap { it.data + it.predictionData }.filter { it.isFinite() }
         var min = forcedMin ?: (allValues.minOrNull() ?: 0f)
         var max = forcedMax ?: (allValues.maxOrNull() ?: 100f)
 
@@ -194,32 +245,112 @@ private fun SensorGraphCanvas(
             strokeWidth = 1.5f
         )
 
-        // Draw dataset lines (maxPoints = 60, matching HTML MAX_POINTS)
+        // Draw "NOW", "PAST", and "FUTURE" markings when prediction is active
+        if (hasPrediction) {
+            // Vertical dotted NOW divider line
+            drawLine(
+                color = Amber.copy(alpha = 0.8f),
+                start = Offset(xNow, topMargin),
+                end = Offset(xNow, topMargin + graphH),
+                strokeWidth = 1.8f,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+            )
+
+            // "NOW" label at bottom of divider
+            drawContext.canvas.nativeCanvas.drawText(
+                "NOW",
+                xNow,
+                topMargin + graphH + 23f,
+                nowPaint
+            )
+
+            // "PAST" and "FUTURE" section markers at top
+            drawContext.canvas.nativeCanvas.drawText(
+                "PAST",
+                leftMargin + (pastW / 2f),
+                topMargin - 6f,
+                subHeaderPaint
+            )
+            drawContext.canvas.nativeCanvas.drawText(
+                "FUTURE",
+                xNow + (futureW / 2f),
+                topMargin - 6f,
+                subHeaderPaint
+            )
+        }
+
         val maxPoints = 60
+        val dashedEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f), 0f)
+
         for (ds in datasets) {
             val data = ds.data
             if (data.size < 2) continue
 
-            val path = Path()
+            // 1. Draw solid line for actual / live readings in PAST section
+            val livePath = Path()
+            var lastX = xNow
+            var lastY = topMargin + graphH
+
             for (idx in data.indices) {
                 val value = data[idx]
-                val x = leftMargin + (idx.toFloat() / (maxPoints - 1).coerceAtLeast(1)) * graphW
+                val x = leftMargin + (idx.toFloat() / (maxPoints - 1).coerceAtLeast(1)) * pastW
                 val normalizedY = ((value - min) / range).coerceIn(0f, 1f)
                 val y = topMargin + graphH - (normalizedY * graphH)
 
                 if (idx == 0) {
-                    path.moveTo(x, y)
+                    livePath.moveTo(x, y)
                 } else {
-                    path.lineTo(x, y)
+                    livePath.lineTo(x, y)
+                }
+
+                if (idx == data.indices.last) {
+                    lastX = x
+                    lastY = y
                 }
             }
 
             drawPath(
-                path = path,
+                path = livePath,
                 color = ds.color,
                 style = Stroke(width = 2.5f, cap = StrokeCap.Round)
             )
+
+            // Draw a distinct live endpoint dot
+            drawCircle(
+                color = ds.color,
+                radius = 3.5f,
+                center = Offset(lastX, lastY)
+            )
+
+            // 2. Draw dashed line for AI Future Predicted values in FUTURE section
+            if (ds.predictionData.isNotEmpty()) {
+                val predPath = Path()
+                // Connect from last live measurement at NOW to the future trajectory
+                predPath.moveTo(lastX, lastY)
+
+                val predCount = ds.predictionData.size
+                for (pIdx in ds.predictionData.indices) {
+                    val pVal = ds.predictionData[pIdx]
+                    val px = xNow + ((pIdx + 1).toFloat() / predCount) * futureW
+                    val pNormY = ((pVal - min) / range).coerceIn(0f, 1f)
+                    val py = topMargin + graphH - (pNormY * graphH)
+
+                    predPath.lineTo(px, py)
+
+                    // Draw predicted dot
+                    drawCircle(
+                        color = ds.predictionColor,
+                        radius = 2.5f,
+                        center = Offset(px, py)
+                    )
+                }
+
+                drawPath(
+                    path = predPath,
+                    color = ds.predictionColor,
+                    style = Stroke(width = 2.5f, cap = StrokeCap.Round, pathEffect = dashedEffect)
+                )
+            }
         }
     }
 }
-

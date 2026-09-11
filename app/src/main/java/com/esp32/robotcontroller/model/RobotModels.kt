@@ -22,3 +22,26 @@ data class DeviceStatus(
     val servo: String = "--"
 )
 
+enum class TrendDirection(val symbol: String, val label: String) {
+    INCREASING("↑", "Increasing"),
+    DECREASING("↓", "Decreasing"),
+    STABLE("→", "Stable"),
+    UNKNOWN("--", "Unknown")
+}
+
+sealed class PredictionState {
+    data class CollectingData(val currentSamples: Int = 0, val requiredSamples: Int = 5) : PredictionState()
+
+    data class Ready(
+        val nextValue: Float,
+        val future30s: Float,
+        val future60s: Float,
+        val trend: TrendDirection,
+        val slope: Float,
+        val futurePoints: List<Float> = emptyList()
+    ) : PredictionState()
+
+    data class Error(val message: String = "Unavailable") : PredictionState()
+}
+
+

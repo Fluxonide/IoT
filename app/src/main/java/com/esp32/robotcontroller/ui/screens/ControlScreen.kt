@@ -114,6 +114,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
     val humidityHistory by viewModel.humidityHistory.collectAsState()
     val mqHistory by viewModel.mqHistory.collectAsState()
     val waterHistory by viewModel.waterHistory.collectAsState()
+    val predictions by viewModel.predictions.collectAsState()
 
     var showConnectionDialog by remember { mutableStateOf(false) }
 
@@ -312,7 +313,8 @@ fun ControlScreen(viewModel: RobotViewModel) {
                     temperatureHistory = temperatureHistory,
                     humidityHistory = humidityHistory,
                     mqHistory = mqHistory,
-                    waterHistory = waterHistory
+                    waterHistory = waterHistory,
+                    predictions = predictions
                 )
 
                 2 -> NodesTab(
@@ -899,9 +901,16 @@ private fun TelemetryTab(
     temperatureHistory: List<Float>,
     humidityHistory: List<Float>,
     mqHistory: List<Float>,
-    waterHistory: List<Float>
+    waterHistory: List<Float>,
+    predictions: Map<String, com.esp32.robotcontroller.model.PredictionState> = emptyMap()
 ) {
     val scrollState = rememberScrollState()
+
+    val distPred = (predictions["distance"] as? com.esp32.robotcontroller.model.PredictionState.Ready)?.futurePoints ?: emptyList()
+    val tempPred = (predictions["temperature"] as? com.esp32.robotcontroller.model.PredictionState.Ready)?.futurePoints ?: emptyList()
+    val humPred = (predictions["humidity"] as? com.esp32.robotcontroller.model.PredictionState.Ready)?.futurePoints ?: emptyList()
+    val mqPred = (predictions["mq"] as? com.esp32.robotcontroller.model.PredictionState.Ready)?.futurePoints ?: emptyList()
+    val waterPred = (predictions["water"] as? com.esp32.robotcontroller.model.PredictionState.Ready)?.futurePoints ?: emptyList()
 
     Column(
         modifier = Modifier
@@ -909,12 +918,12 @@ private fun TelemetryTab(
             .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Section 04: Live sensor data (Distance, Temperature, Humidity, MQ, Water)
-        SensorGridView(sensorData = sensorData)
+        // Section 04: Live sensor data & AI Prediction
+        SensorGridView(sensorData = sensorData, predictions = predictions)
 
         // Telemetry History Label matching HTML
         Text(
-            text = "TELEMETRY HISTORY — LAST 60 SAMPLES",
+            text = "TELEMETRY HISTORY & AI FORECAST — PAST (SOLID) / FUTURE (DASHED)",
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.SemiBold,
@@ -926,20 +935,20 @@ private fun TelemetryTab(
         // 1. Distance Graph
         SensorGraphCard(
             title = "Ultrasonic distance",
-            datasets = listOf(GraphDataset("Distance (cm)", distanceHistory, MaterialTheme.colorScheme.primary)),
+            datasets = listOf(GraphDataset("Distance (cm)", distanceHistory, MaterialTheme.colorScheme.primary, predictionData = distPred)),
             minVal = 0f
         )
 
         // 2. Temperature Graph
         SensorGraphCard(
             title = "Temperature",
-            datasets = listOf(GraphDataset("Temperature (°C)", temperatureHistory, Red))
+            datasets = listOf(GraphDataset("Temperature (°C)", temperatureHistory, Red, predictionData = tempPred))
         )
 
         // 3. Humidity Graph
         SensorGraphCard(
             title = "Humidity",
-            datasets = listOf(GraphDataset("Humidity (%)", humidityHistory, Cyan)),
+            datasets = listOf(GraphDataset("Humidity (%)", humidityHistory, Cyan, predictionData = humPred)),
             minVal = 0f,
             maxVal = 100f
         )
@@ -947,14 +956,14 @@ private fun TelemetryTab(
         // 4. MQ Sensor Graph
         SensorGraphCard(
             title = "MQ sensor",
-            datasets = listOf(GraphDataset("MQ Value", mqHistory, Green)),
+            datasets = listOf(GraphDataset("MQ Value", mqHistory, Green, predictionData = mqPred)),
             minVal = 0f
         )
 
         // 5. Water Sensor Graph
         SensorGraphCard(
             title = "Water sensor",
-            datasets = listOf(GraphDataset("Water Value", waterHistory, Purple)),
+            datasets = listOf(GraphDataset("Water Value", waterHistory, Purple, predictionData = waterPred)),
             minVal = 0f
         )
 

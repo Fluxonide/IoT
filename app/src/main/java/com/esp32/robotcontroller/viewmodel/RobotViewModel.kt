@@ -6,8 +6,13 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.esp32.robotcontroller.ai.DataCleaner
+import com.esp32.robotcontroller.ai.HistoricalDataStorage
+import com.esp32.robotcontroller.ai.LinearRegressionPredictor
 import com.esp32.robotcontroller.model.DeviceStatus
+import com.esp32.robotcontroller.model.PredictionState
 import com.esp32.robotcontroller.model.SensorData
+import com.esp32.robotcontroller.model.TrendDirection
 import com.esp32.robotcontroller.network.RobotApiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -128,6 +133,21 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     private val _waterHistory = MutableStateFlow<List<Float>>(emptyList())
     val waterHistory: StateFlow<List<Float>> = _waterHistory.asStateFlow()
 
+    // AI / ML Linear Regression Predictor & Historical CSV Storage
+    private val predictor = LinearRegressionPredictor(windowCapacity = 30, minRequiredSamples = 5)
+    private val historyStorage = HistoricalDataStorage(application)
+
+    private val _predictions = MutableStateFlow<Map<String, PredictionState>>(
+        mapOf(
+            "temperature" to PredictionState.CollectingData(0, 5),
+            "mq" to PredictionState.CollectingData(0, 5),
+            "water" to PredictionState.CollectingData(0, 5),
+            "distance" to PredictionState.CollectingData(0, 5),
+            "humidity" to PredictionState.CollectingData(0, 5)
+        )
+    )
+    val predictions: StateFlow<Map<String, PredictionState>> = _predictions.asStateFlow()
+
     // Motor Speed (default 180 as in HTML)
     private val _currentSpeed = MutableStateFlow(180)
     val currentSpeed: StateFlow<Int> = _currentSpeed.asStateFlow()
@@ -240,12 +260,63 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
                         _humidityHistory.value = pushHistory(_humidityHistory.value, data.humidity)
                         _mqHistory.value = pushHistory(_mqHistory.value, data.mq)
                         _waterHistory.value = pushHistory(_waterHistory.value, data.water)
+
+                        // Run lightweight ML prediction independently
+                        processSensorPrediction(data)
                     }
                     is RobotApiService.Result.Error -> {
                         _isSensorOnline.value = false
                     }
                 }
                 delay(1000) // 1s interval as in esp32-robot-dashboard.html
+            }
+        }
+    }
+
+    private fun processSensorPrediction(data: SensorData) {
+        viewModelScope.launch(Dispatchers.Default) {
+            try {
+                // 1. Asynchronously log raw reading to permanent CSV file (never holds full log in RAM)
+                historyStorage.appendReading(data)
+
+                // 2. Validate timestamp
+                if (!DataCleaner.isTimestampValid(data.timestamp)) {
+                    return@launch
+                }
+
+                // 3. Validate and clean each sensor reading, then add to rolling buffer
+                val cleanTemp = DataCleaner.validateAndClean("temperature", data.temperature, predictor.getRecentSamples("temperature"))
+                if (cleanTemp != null) predictor.addSample("temperature", cleanTemp)
+
+                val cleanMq = DataCleaner.validateAndClean("mq", data.mq, predictor.getRecentSamples("mq"))
+                if (cleanMq != null) predictor.addSample("mq", cleanMq)
+
+                val cleanWater = DataCleaner.validateAndClean("water", data.water, predictor.getRecentSamples("water"))
+                if (cleanWater != null) predictor.addSample("water", cleanWater)
+
+                val cleanDist = DataCleaner.validateAndClean("distance", data.distance, predictor.getRecentSamples("distance"))
+                if (cleanDist != null) predictor.addSample("distance", cleanDist)
+
+                val cleanHum = DataCleaner.validateAndClean("humidity", data.humidity, predictor.getRecentSamples("humidity"))
+                if (cleanHum != null) predictor.addSample("humidity", cleanHum)
+
+                // 4. Compute lightweight OLS Linear Regression predictions
+                _predictions.value = mapOf(
+                    "temperature" to predictor.predict("temperature"),
+                    "mq" to predictor.predict("mq"),
+                    "water" to predictor.predict("water"),
+                    "distance" to predictor.predict("distance"),
+                    "humidity" to predictor.predict("humidity")
+                )
+            } catch (e: Exception) {
+                // Fail safely: Never crash robot controller or block streaming if prediction encounters an issue
+                _predictions.value = mapOf(
+                    "temperature" to PredictionState.Error("Unavailable"),
+                    "mq" to PredictionState.Error("Unavailable"),
+                    "water" to PredictionState.Error("Unavailable"),
+                    "distance" to PredictionState.Error("Unavailable"),
+                    "humidity" to PredictionState.Error("Unavailable")
+                )
             }
         }
     }
