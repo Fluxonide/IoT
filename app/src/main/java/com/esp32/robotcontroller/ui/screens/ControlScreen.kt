@@ -302,6 +302,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
                     onDirectionRelease = { viewModel.onDirectionRelease() },
                     onSpeedChange = { viewModel.updateSpeed(it) },
                     onServoChange = { viewModel.setServoAngle(it) },
+                    onServoFinished = { viewModel.setServoAngle(it, immediate = true) },
                     onServoLeft = { viewModel.servoLeft() },
                     onServoCenter = { viewModel.servoCenter() },
                     onServoRight = { viewModel.servoRight() }
@@ -358,6 +359,7 @@ private fun OptimizedCockpitTab(
     onDirectionRelease: () -> Unit,
     onSpeedChange: (Int) -> Unit,
     onServoChange: (Int) -> Unit,
+    onServoFinished: (Int) -> Unit = {},
     onServoLeft: () -> Unit,
     onServoCenter: () -> Unit,
     onServoRight: () -> Unit
@@ -389,6 +391,7 @@ private fun OptimizedCockpitTab(
                 ServoPanRow(
                     servoAngle = servoAngle,
                     onServoChange = onServoChange,
+                    onServoFinished = onServoFinished,
                     onServoLeft = onServoLeft,
                     onServoCenter = onServoCenter,
                     onServoRight = onServoRight
@@ -436,6 +439,7 @@ private fun OptimizedCockpitTab(
                 ServoPanRow(
                     servoAngle = servoAngle,
                     onServoChange = onServoChange,
+                    onServoFinished = onServoFinished,
                     onServoLeft = onServoLeft,
                     onServoCenter = onServoCenter,
                     onServoRight = onServoRight
@@ -533,6 +537,7 @@ private fun CameraFeedSection(
 private fun ServoPanRow(
     servoAngle: Int,
     onServoChange: (Int) -> Unit,
+    onServoFinished: (Int) -> Unit = {},
     onServoLeft: () -> Unit,
     onServoCenter: () -> Unit,
     onServoRight: () -> Unit
@@ -566,6 +571,9 @@ private fun ServoPanRow(
                 localServoAngle = it
                 onServoChange(it.toInt())
             },
+            onValueChangeFinished = {
+                onServoFinished(localServoAngle.toInt())
+            },
             valueRange = 20f..160f,
             modifier = Modifier
                 .weight(1.5f)
@@ -578,7 +586,7 @@ private fun ServoPanRow(
         )
 
         Text(
-            text = "$servoAngle°",
+            text = "${localServoAngle.toInt()}°",
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,

@@ -17,6 +17,10 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,7 +36,8 @@ fun ServoPanControl(
     modifier: Modifier = Modifier,
     onServoLeft: (() -> Unit)? = null,
     onServoCenter: (() -> Unit)? = null,
-    onServoRight: (() -> Unit)? = null
+    onServoRight: (() -> Unit)? = null,
+    onAngleChangeFinished: ((Int) -> Unit)? = null
 ) {
     Box(
         modifier = modifier
@@ -43,6 +48,8 @@ fun ServoPanControl(
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Column {
+            var localServoAngle by remember(servoAngle) { mutableFloatStateOf(servoAngle.toFloat()) }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -57,7 +64,7 @@ fun ServoPanControl(
                     letterSpacing = 0.5.sp
                 )
                 Text(
-                    text = "$servoAngle°",
+                    text = "${localServoAngle.toInt()}°",
                     fontSize = 14.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -92,8 +99,14 @@ fun ServoPanControl(
             }
 
             Slider(
-                value = servoAngle.toFloat(),
-                onValueChange = { onAngleChange(it.toInt()) },
+                value = localServoAngle,
+                onValueChange = {
+                    localServoAngle = it
+                    onAngleChange(it.toInt())
+                },
+                onValueChangeFinished = {
+                    onAngleChangeFinished?.invoke(localServoAngle.toInt())
+                },
                 valueRange = 20f..160f,
                 modifier = Modifier
                     .fillMaxWidth()

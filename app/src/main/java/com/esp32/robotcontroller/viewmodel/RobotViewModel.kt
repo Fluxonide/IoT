@@ -155,7 +155,7 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     // Servo Pan Angle (20° to 160°, default 90°)
     private val _servoAngle = MutableStateFlow(90)
     val servoAngle: StateFlow<Int> = _servoAngle.asStateFlow()
-    val isUserAdjustingServo = AtomicBoolean(false)
+    private var initialServoLoaded = false
 
     // Camera frame
     private val _cameraFrame = MutableStateFlow<Bitmap?>(null)
@@ -226,7 +226,7 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     private fun collectServoChanges() {
         viewModelScope.launch {
-            servoFlow.debounce(50).collectLatest { angle ->
+            servoFlow.debounce(40).collectLatest { angle ->
                 apiService.setServo(angle)
             }
         }
@@ -353,7 +353,8 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
                         _isCameraOnline.value = true
                         _cameraStatus.value = camRes.data
                         val s = camRes.data.servo.removeSuffix("°").toIntOrNull()
-                        if (s != null && !isUserAdjustingServo.get()) {
+                        if (s != null && !initialServoLoaded) {
+                            initialServoLoaded = true
                             _servoAngle.value = s
                         }
                     }
@@ -408,29 +409,41 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
 
     /* ================= Servo Pan Controls ================= */
 
-    fun setServoAngle(angle: Int) {
+    private var servoJob: Job? = null
+
+    fun setServoAngle(angle: Int, immediate: Boolean = false) {
         val clamped = angle.coerceIn(20, 160)
         _servoAngle.value = clamped
-        servoFlow.tryEmit(clamped)
+        if (immediate) {
+            servoJob?.cancel()
+            servoJob = viewModelScope.launch(Dispatchers.IO) {
+                apiService.setServo(clamped)
+            }
+        } else {
+            servoFlow.tryEmit(clamped)
+        }
     }
 
     fun servoLeft() {
         _servoAngle.value = 20
-        viewModelScope.launch(Dispatchers.IO) {
+        servoJob?.cancel()
+        servoJob = viewModelScope.launch(Dispatchers.IO) {
             apiService.servoLeft()
         }
     }
 
     fun servoCenter() {
         _servoAngle.value = 90
-        viewModelScope.launch(Dispatchers.IO) {
+        servoJob?.cancel()
+        servoJob = viewModelScope.launch(Dispatchers.IO) {
             apiService.servoCenter()
         }
     }
 
     fun servoRight() {
         _servoAngle.value = 160
-        viewModelScope.launch(Dispatchers.IO) {
+        servoJob?.cancel()
+        servoJob = viewModelScope.launch(Dispatchers.IO) {
             apiService.servoRight()
         }
     }
