@@ -31,6 +31,7 @@ local.properties
 *.jks
 *.keystore
 !keystore/debug.keystore
+!keystore/release.keystore
 
 # Log files
 *.log

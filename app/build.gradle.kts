@@ -8,7 +8,8 @@ android {
     namespace = "com.esp32.robotcontroller"
     compileSdk = 34
 
-    val keystoreFile = rootProject.file("keystore/debug.keystore")
+    val debugKeystoreFile = rootProject.file("keystore/debug.keystore")
+    val releaseKeystoreFile = rootProject.file("keystore/release.keystore")
 
     defaultConfig {
         applicationId = "com.esp32.robotcontroller"
@@ -20,18 +21,29 @@ android {
 
     signingConfigs {
         getByName("debug") {
-            if (keystoreFile.exists()) {
-                storeFile = keystoreFile
+            if (debugKeystoreFile.exists()) {
+                storeFile = debugKeystoreFile
                 storePassword = "android"
                 keyAlias = "androiddebugkey"
                 keyPassword = "android"
             }
         }
         create("release") {
-            storeFile = if (keystoreFile.exists()) keystoreFile else file(System.getProperty("user.home") + "/.android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            if (releaseKeystoreFile.exists()) {
+                storeFile = releaseKeystoreFile
+                storePassword = "robotcontroller123"
+                keyAlias = "robotcontroller"
+                keyPassword = "robotcontroller123"
+            } else if (debugKeystoreFile.exists()) {
+                storeFile = debugKeystoreFile
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
         }
     }
 
