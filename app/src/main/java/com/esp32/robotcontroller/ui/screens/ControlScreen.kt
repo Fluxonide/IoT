@@ -156,7 +156,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
             .background(MaterialTheme.colorScheme.background)
     ) {
         // ============================================================
-        // HEADER — RVR-01 FIELD TELEMETRY CONSOLE
+        // HEADER — VIKRAM-01 FIELD TELEMETRY CONSOLE
         // ============================================================
         Column(
             modifier = Modifier
@@ -177,7 +177,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "RVR",
+                        text = "VIKRAM",
                         fontSize = 18.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
@@ -192,7 +192,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
                     )
                 }
                 Text(
-                    text = "Bikram",
+                    text = "FIELD TELEMETRY CONSOLE",
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
                     letterSpacing = 0.6.sp,
