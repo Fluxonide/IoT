@@ -108,7 +108,7 @@ fun ConnectionDialog(
                     value = motorUrlInput,
                     onValueChange = { motorUrlInput = it },
                     label = { Text("Motor ESP32 URL") },
-                    placeholder = { Text("http://172.17.40.60") },
+                    placeholder = { Text("http://172.17.40.50") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
@@ -251,7 +251,7 @@ fun ConnectionDialog(
                 ) {
                     TextButton(
                         onClick = {
-                            motorUrlInput = "http://172.17.40.60"
+                            motorUrlInput = "http://172.17.40.50"
                             sensorUrlInput = "http://172.17.40.60"
                             cameraUrlInput = "http://172.17.40.60"
                             streamUrlInput = "http://172.17.40.60:82/stream"

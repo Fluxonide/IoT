@@ -25,12 +25,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.runtime.remember
+
 @Composable
 fun SpeedSlider(
     currentSpeed: Int,
     onSpeedChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val speedPresets = remember { listOf(100, 180, 255) }
+    val hapticTracker = rememberSliderHapticTracker(presets = speedPresets, resetDistance = 4f)
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -72,19 +77,28 @@ fun SpeedSlider(
                 SpeedPresetChip(
                     label = "SLOW (100)",
                     isSelected = currentSpeed == 100,
-                    onClick = { onSpeedChange(100) },
+                    onClick = {
+                        hapticTracker.triggerManualPreset(100)
+                        onSpeedChange(100)
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 SpeedPresetChip(
                     label = "MED (180)",
                     isSelected = currentSpeed == 180,
-                    onClick = { onSpeedChange(180) },
+                    onClick = {
+                        hapticTracker.triggerManualPreset(180)
+                        onSpeedChange(180)
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 SpeedPresetChip(
                     label = "MAX (255)",
                     isSelected = currentSpeed == 255,
-                    onClick = { onSpeedChange(255) },
+                    onClick = {
+                        hapticTracker.triggerManualPreset(255)
+                        onSpeedChange(255)
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -93,7 +107,10 @@ fun SpeedSlider(
 
             Slider(
                 value = currentSpeed.toFloat(),
-                onValueChange = { onSpeedChange(it.toInt()) },
+                onValueChange = {
+                    hapticTracker.onValueChange(it)
+                    onSpeedChange(it.toInt())
+                },
                 valueRange = 0f..255f,
                 modifier = Modifier
                     .fillMaxWidth()

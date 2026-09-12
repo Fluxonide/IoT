@@ -14,7 +14,7 @@ import java.io.InputStream
 import java.util.concurrent.TimeUnit
 
 class RobotApiService(
-    private var motorBaseUrl: String = "http://172.17.40.60",
+    private var motorBaseUrl: String = "http://172.17.40.50",
     private var sensorBaseUrl: String = "http://172.17.40.60",
     private var cameraBaseUrl: String = "http://172.17.40.60",
     private var cameraStreamUrl: String = "http://172.17.40.60:82/stream",
@@ -45,7 +45,7 @@ class RobotApiService(
         newStreamUrl: String = "",
         newWsUrl: String = ""
     ) {
-        this.motorBaseUrl = sanitizeHttpUrl(newMotorUrl, "http://172.17.40.60")
+        this.motorBaseUrl = sanitizeHttpUrl(newMotorUrl, "http://172.17.40.50")
         this.sensorBaseUrl = sanitizeHttpUrl(newSensorUrl, "http://172.17.40.60")
         this.cameraBaseUrl = sanitizeHttpUrl(newCameraUrl, "http://172.17.40.60")
         if (newStreamUrl.isNotBlank()) {
@@ -295,7 +295,7 @@ class RobotApiService(
             return withScheme.trimEnd('/')
         }
 
-        fun sanitizeControlUrl(url: String): String = sanitizeHttpUrl(url, "http://172.17.40.60")
+        fun sanitizeControlUrl(url: String): String = sanitizeHttpUrl(url, "http://172.17.40.50")
 
         fun sanitizeCameraWsUrl(url: String): String {
             val trimmed = url.trim()

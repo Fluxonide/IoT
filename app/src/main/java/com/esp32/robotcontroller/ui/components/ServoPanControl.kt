@@ -48,6 +48,8 @@ fun ServoPanControl(
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Column {
+            val servoPresets = remember { listOf(20, 90, 160) }
+            val servoHapticTracker = rememberSliderHapticTracker(presets = servoPresets, resetDistance = 3f)
             var localServoAngle by remember(servoAngle) { mutableFloatStateOf(servoAngle.toFloat()) }
 
             Row(
@@ -81,19 +83,28 @@ fun ServoPanControl(
                 ServoPresetButton(
                     label = "◄ Left",
                     isSelected = servoAngle == 20,
-                    onClick = { onServoLeft?.invoke() ?: onAngleChange(20) },
+                    onClick = {
+                        servoHapticTracker.triggerManualPreset(20)
+                        onServoLeft?.invoke() ?: onAngleChange(20)
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 ServoPresetButton(
                     label = "● Center",
                     isSelected = servoAngle == 90,
-                    onClick = { onServoCenter?.invoke() ?: onAngleChange(90) },
+                    onClick = {
+                        servoHapticTracker.triggerManualPreset(90)
+                        onServoCenter?.invoke() ?: onAngleChange(90)
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 ServoPresetButton(
                     label = "Right ►",
                     isSelected = servoAngle == 160,
-                    onClick = { onServoRight?.invoke() ?: onAngleChange(160) },
+                    onClick = {
+                        servoHapticTracker.triggerManualPreset(160)
+                        onServoRight?.invoke() ?: onAngleChange(160)
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -102,6 +113,7 @@ fun ServoPanControl(
                 value = localServoAngle,
                 onValueChange = {
                     localServoAngle = it
+                    servoHapticTracker.onValueChange(it)
                     onAngleChange(it.toInt())
                 },
                 onValueChangeFinished = {

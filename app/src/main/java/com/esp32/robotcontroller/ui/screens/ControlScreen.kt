@@ -1,6 +1,7 @@
 package com.esp32.robotcontroller.ui.screens
 
 import androidx.compose.foundation.background
+import com.esp32.robotcontroller.ui.components.rememberSliderHapticTracker
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -191,7 +192,7 @@ fun ControlScreen(viewModel: RobotViewModel) {
                     )
                 }
                 Text(
-                    text = "FIELD TELEMETRY CONSOLE",
+                    text = "Bikram",
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
                     letterSpacing = 0.6.sp,
@@ -560,15 +561,43 @@ private fun ServoPanRow(
             color = MaterialTheme.colorScheme.primary
         )
 
-        QuickActionChip(label = "◄ 20°", isSelected = servoAngle == 20, onClick = onServoLeft, modifier = Modifier.weight(0.8f))
-        QuickActionChip(label = "● 90°", isSelected = servoAngle == 90, onClick = onServoCenter, modifier = Modifier.weight(0.8f))
-        QuickActionChip(label = "160° ►", isSelected = servoAngle == 160, onClick = onServoRight, modifier = Modifier.weight(0.8f))
+        val servoPresets = remember { listOf(20, 90, 160) }
+        val servoHapticTracker = rememberSliderHapticTracker(presets = servoPresets, resetDistance = 3f)
+
+        QuickActionChip(
+            label = "◄ 20°",
+            isSelected = servoAngle == 20,
+            onClick = {
+                servoHapticTracker.triggerManualPreset(20)
+                onServoLeft()
+            },
+            modifier = Modifier.weight(0.8f)
+        )
+        QuickActionChip(
+            label = "● 90°",
+            isSelected = servoAngle == 90,
+            onClick = {
+                servoHapticTracker.triggerManualPreset(90)
+                onServoCenter()
+            },
+            modifier = Modifier.weight(0.8f)
+        )
+        QuickActionChip(
+            label = "160° ►",
+            isSelected = servoAngle == 160,
+            onClick = {
+                servoHapticTracker.triggerManualPreset(160)
+                onServoRight()
+            },
+            modifier = Modifier.weight(0.8f)
+        )
 
         var localServoAngle by remember(servoAngle) { mutableFloatStateOf(servoAngle.toFloat()) }
         Slider(
             value = localServoAngle,
             onValueChange = {
                 localServoAngle = it
+                servoHapticTracker.onValueChange(it)
                 onServoChange(it.toInt())
             },
             onValueChangeFinished = {
@@ -715,11 +744,15 @@ private fun ControlsSection(
                 }
             }
 
+            val speedPresets = remember { listOf(100, 180, 255) }
+            val hapticTracker = rememberSliderHapticTracker(presets = speedPresets, resetDistance = 4f)
+
             var localSpeed by remember(currentSpeed) { mutableFloatStateOf(currentSpeed.toFloat()) }
             Slider(
                 value = localSpeed,
                 onValueChange = {
                     localSpeed = it
+                    hapticTracker.onValueChange(it)
                     onSpeedChange(it.toInt())
                 },
                 valueRange = 0f..255f,
@@ -739,30 +772,47 @@ private fun ControlsSection(
             ) {
                 QuickStepButton(
                     label = "−10",
-                    onClick = { onSpeedChange((currentSpeed - 10).coerceAtLeast(0)) },
+                    onClick = {
+                        val newSpeed = (currentSpeed - 10).coerceAtLeast(0)
+                        hapticTracker.triggerStep(newSpeed)
+                        onSpeedChange(newSpeed)
+                    },
                     modifier = Modifier.weight(0.8f)
                 )
                 QuickActionChip(
                     label = "100",
                     isSelected = currentSpeed == 100,
-                    onClick = { onSpeedChange(100) },
+                    onClick = {
+                        hapticTracker.triggerManualPreset(100)
+                        onSpeedChange(100)
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 QuickActionChip(
                     label = "180",
                     isSelected = currentSpeed == 180,
-                    onClick = { onSpeedChange(180) },
+                    onClick = {
+                        hapticTracker.triggerManualPreset(180)
+                        onSpeedChange(180)
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 QuickActionChip(
                     label = "255",
                     isSelected = currentSpeed == 255,
-                    onClick = { onSpeedChange(255) },
+                    onClick = {
+                        hapticTracker.triggerManualPreset(255)
+                        onSpeedChange(255)
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 QuickStepButton(
                     label = "+10",
-                    onClick = { onSpeedChange((currentSpeed + 10).coerceAtMost(255)) },
+                    onClick = {
+                        val newSpeed = (currentSpeed + 10).coerceAtMost(255)
+                        hapticTracker.triggerStep(newSpeed)
+                        onSpeedChange(newSpeed)
+                    },
                     modifier = Modifier.weight(0.8f)
                 )
             }

@@ -49,8 +49,10 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = application.getSharedPreferences("robot_controller_prefs", Context.MODE_PRIVATE)
 
     private val initialMotorUrl = RobotApiService.sanitizeHttpUrl(
-        prefs.getString("motor_url", "http://172.17.40.60") ?: "http://172.17.40.60",
-        "http://172.17.40.60"
+        prefs.getString("motor_url", null).let {
+            if (it == null || it == "http://172.17.40.60") "http://172.17.40.50" else it
+        },
+        "http://172.17.40.50"
     )
     private val initialSensorUrl = RobotApiService.sanitizeHttpUrl(
         prefs.getString("sensor_url", "http://172.17.40.60") ?: "http://172.17.40.60",
@@ -103,7 +105,7 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
     val isCameraOnline: StateFlow<Boolean> = _isCameraOnline.asStateFlow()
 
     // Device Details
-    private val _motorStatus = MutableStateFlow(DeviceStatus(ip = "172.17.40.60"))
+    private val _motorStatus = MutableStateFlow(DeviceStatus(ip = "172.17.40.50"))
     val motorStatus: StateFlow<DeviceStatus> = _motorStatus.asStateFlow()
 
     private val _sensorStatus = MutableStateFlow(DeviceStatus(ip = "172.17.40.60"))
@@ -625,7 +627,7 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         newStreamUrl: String = "",
         newWsUrl: String = ""
     ) {
-        val sanitizedMotor = RobotApiService.sanitizeHttpUrl(newMotorUrl, "http://172.17.40.60")
+        val sanitizedMotor = RobotApiService.sanitizeHttpUrl(newMotorUrl, "http://172.17.40.50")
         val sanitizedSensor = RobotApiService.sanitizeHttpUrl(newSensorUrl, "http://172.17.40.60")
         val sanitizedCamera = RobotApiService.sanitizeHttpUrl(newCameraUrl, "http://172.17.40.60")
         val finalStream = if (newStreamUrl.isNotBlank()) newStreamUrl.trim() else _streamUrl.value
