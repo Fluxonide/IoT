@@ -199,40 +199,9 @@ class RobotApiService(
         }
     }
 
-    suspend fun servoLeft(): Result<String> = withContext(Dispatchers.IO) {
-        sendCameraCommandWithFallback("/left", 20)
-    }
-
-    suspend fun servoCenter(): Result<String> = withContext(Dispatchers.IO) {
-        sendCameraCommandWithFallback("/center", 90)
-    }
-
-    suspend fun servoRight(): Result<String> = withContext(Dispatchers.IO) {
-        sendCameraCommandWithFallback("/right", 160)
-    }
-
-    private suspend fun sendCameraCommandWithFallback(endpoint: String, fallbackAngle: Int): Result<String> {
-        val cleanEndpoint = if (endpoint.startsWith("/")) endpoint else "/$endpoint"
-        val primaryResult = try {
-            val request = Request.Builder()
-                .url("${cameraBaseUrl.trimEnd('/')}$cleanEndpoint")
-                .header("Connection", "close")
-                .get()
-                .build()
-            client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) Result.Success(response.body?.string().orEmpty().ifEmpty { "OK" })
-                else Result.Error("HTTP ${response.code}")
-            }
-        } catch (e: Exception) {
-            Result.Error(e.message ?: "Servo error")
-        }
-
-        return if (primaryResult is Result.Success) {
-            primaryResult
-        } else {
-            setServo(fallbackAngle)
-        }
-    }
+    // NOTE: Firmware /left and /right use relative ±10° offsets (not absolute
+    // presets). The app always uses setServo(angle) with the exact target angle
+    // so the slider and preset buttons stay in sync.
 
     suspend fun getCameraStatus(): Result<DeviceStatus> = withContext(Dispatchers.IO) {
         try {

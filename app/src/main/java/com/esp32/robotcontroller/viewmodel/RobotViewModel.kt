@@ -417,6 +417,8 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         val clamped = angle.coerceIn(20, 160)
         _servoAngle.value = clamped
         if (immediate) {
+            // Cancel any pending debounced slider value so it can't override this
+            servoFlow.tryEmit(clamped)
             servoJob?.cancel()
             servoJob = viewModelScope.launch(Dispatchers.IO) {
                 apiService.setServo(clamped)
@@ -426,28 +428,20 @@ class RobotViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // FIX: Firmware /left and /right use relative ±10° offsets, not absolute
+    // positions. The app needs absolute jumps (20°/90°/160°), so always use
+    // /servo?angle=X via setServoAngle(angle, immediate = true) instead.
+
     fun servoLeft() {
-        _servoAngle.value = 20
-        servoJob?.cancel()
-        servoJob = viewModelScope.launch(Dispatchers.IO) {
-            apiService.servoLeft()
-        }
+        setServoAngle(20, immediate = true)
     }
 
     fun servoCenter() {
-        _servoAngle.value = 90
-        servoJob?.cancel()
-        servoJob = viewModelScope.launch(Dispatchers.IO) {
-            apiService.servoCenter()
-        }
+        setServoAngle(90, immediate = true)
     }
 
     fun servoRight() {
-        _servoAngle.value = 160
-        servoJob?.cancel()
-        servoJob = viewModelScope.launch(Dispatchers.IO) {
-            apiService.servoRight()
-        }
+        setServoAngle(160, immediate = true)
     }
 
     /* ================= Camera Stream ================= */
